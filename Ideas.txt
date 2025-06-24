@@ -1,0 +1,25 @@
+đây là ý tưởng trò chơi của tôi:
+click vào gamges: hiện 3 options 
+1. play:
+	1.1 Customs
+		1.1.1 Chọn số lượng người chơi và nhập tên người chơi
+		1.1.2 Chọn n ô may mắn đếm từ 1 => n
+		1.1.3 Chọn tỷ lệ số các kết quả
+			- có 6 kết quả khi chọn :
+				1. kéo búa bao: người chơi oẳn tù xì với 1 người khác: thắng +10 thua +0
+				2. Thiên thần: +15 điểm
+				3. Ác quỷ: -25 điểm
+				4. Súng: cướp 20 điểm của 1 người chơi bất kỳ
+				5. May mắn: +30 điểm
+				6. Trúng xổ số: +50 điểm
+			- Có 2 lựa chọn: 1 là tỷ lệ 6 kết quả được chia đều, 2 là tùy chỉnh các % của 6 kết quả trên
+	=>> sau khi nhập hết input thì hiện ra màn hình trò chơi:
+	có n ô may mắn đã nhập, người chơi có 2 lựa chọn để lật ô may mắn: 1 là chọn ra 1 số ngẫu nhiên do máy chọn, 2 là tự chọn số mình muốn
+	hiển thị tên người chơi và số điểm => hiển thị highlight người đang đến lượt
+	có nút kết thúc trò chơi => hỏi người dùng lưu lại lịch sử
+	1.2 Set 1, 2, 3, 4, 5
+		- trong 3 set này sẽ lưu các thông tin từ các cài đặt có sẵn từ customs
+		- có thể lưu tên set 
+	
+2. Histories => hiện lịch sử chơi, người chơi và số điểm của lần đó 
+3. Exit => thoát trò chơi
