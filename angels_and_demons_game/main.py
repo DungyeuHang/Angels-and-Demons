@@ -1,8 +1,10 @@
 
 from models.player import Player
 from mechanics.effects import apply_effect
+from mechanics import randomizer
 import random
-
+from ui.game_screen import run_game_ui
+run_game_ui()
 # Tạo người chơi
 num_players = int(input("Nhập số người chơi: "))
 players = []
@@ -14,6 +16,16 @@ for i in range(num_players):
 # Số ô may mắn
 n = int(input("Số lượng ô may mắn (ví dụ 12): "))
 available_numbers = list(range(1, n + 1))
+
+# Chọn kiểu phân phối hiệu ứng
+distribution = input("Chọn tỉ lệ hiệu ứng: 1. Chia đều | 2. Tùy chỉnh\n> ")
+distribution_type = "custom" if distribution == "2" else "even"
+
+# Gán phân phối hiệu ứng toàn cục
+if distribution_type == "custom":
+    randomizer._saved_distribution = randomizer.get_custom_distribution()
+else:
+    randomizer._saved_distribution = randomizer.get_even_distribution()
 
 print("\n--- BẮT ĐẦU TRÒ CHƠI ---\n")
 
@@ -49,8 +61,8 @@ while True:
     # Loại bỏ số đã chọn
     available_numbers.remove(number)
 
-    # Random hiệu ứng
-    effect_id = random.randint(1, 6)
+    # Lấy hiệu ứng theo tỉ lệ đã chọn
+    effect_id = randomizer.choose_effect(distribution_type)
     message = apply_effect(effect_id, current_player, players)
     print(f"Bạn chọn số {number} → {message}")
 
@@ -62,3 +74,10 @@ while True:
     turn += 1
 
 print("\n--- KẾT THÚC GAME ---")
+
+# Xếp hạng người chơi
+sorted_players = sorted(players, key=lambda p: p.score, reverse=True)
+
+print("\n🏆 KẾT QUẢ CHUNG CUỘC:")
+for i, p in enumerate(sorted_players, start=1):
+    print(f"{i}. {p.name} - {p.score} điểm")
