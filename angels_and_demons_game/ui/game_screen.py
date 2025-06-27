@@ -1,283 +1,169 @@
 
 import pygame
-import random
-import sys
+from mechanics.effects import apply_effect
+from mechanics.randomizer import get_random_effect
 
-pygame.init()
-
-WIDTH, HEIGHT = 900, 700
-SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Angels and Demons")
-
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-GRAY = (200, 200, 200)
-GREEN = (50, 205, 50)
-RED = (220, 20, 60)
-BLUE = (100, 149, 237)
-
-try:
-    FONT = pygame.font.SysFont("Times New Roman", 28)
-    SMALL_FONT = pygame.font.SysFont("Times New Roman", 22)
-except:
-    FONT = pygame.font.Font(None, 28)
-    SMALL_FONT = pygame.font.Font(None, 22)
-
-class Player:
-    def __init__(self, name):
-        self.name = name
-        self.score = 0
-
-class Button:
-    def __init__(self, rect, text, color=GRAY, text_color=BLACK):
-        self.rect = pygame.Rect(rect)
-        self.text = text
-        self.color = color
-        self.text_color = text_color
-        self.active = True
-
-    def draw(self, screen):
-        color = self.color if self.active else (220, 220, 220)
-        pygame.draw.rect(screen, color, self.rect)
-        pygame.draw.rect(screen, BLACK, self.rect, 2)
-        txt_surf = SMALL_FONT.render(self.text, True, self.text_color)
-        txt_rect = txt_surf.get_rect(center=self.rect.center)
-        screen.blit(txt_surf, txt_rect)
-
-    def is_clicked(self, pos):
-        return self.rect.collidepoint(pos) and self.active
-
-def apply_effect(effect_id, player, all_players):
-    if effect_id == 1:
-        player.score += 15
-        return "🌤️ Gặp Thiên Thần! +15 điểm"
-    elif effect_id == 2:
-        player.score -= 25
-        return "😈 Gặp Ác Quỷ! -25 điểm"
-    elif effect_id == 3:
-        player.score += 30
-        return "🍀 May mắn đến! +30 điểm"
-    elif effect_id == 4:
-        player.score += 50
-        return "💰 Trúng xổ số! +50 điểm"
-    elif effect_id == 5:
-        targets = [p for p in all_players if p != player]
-        if targets:
-            target = random.choice(targets)
-            target.score -= 20
-            player.score += 20
-            return f"🔫 Cướp 20 điểm từ {target.name}"
-        return "🔫 Không có ai để cướp điểm"
-    elif effect_id == 6:
-        outcome = random.choice(["win", "lose"])
-        if outcome == "win":
-            player.score += 10
-            return "✊ Kéo Búa Bao: Bạn thắng! +10 điểm"
-        else:
-            return "✊ Kéo Búa Bao: Bạn thua!"
-    return "❓ Hiệu ứng không xác định"
-
-def show_choice_popup(remaining_numbers):
-    running = True
+def run_game_ui(players, num_boxes, dist_mode):
+    pygame.init()
+    screen = pygame.display.set_mode((1000, 700), pygame.RESIZABLE)
+    pygame.display.set_caption("Angels and Demons - Game")
+    font_name = "Times New Roman"
+    font = pygame.font.SysFont(font_name, 24)
+    big_font = pygame.font.SysFont(font_name, 36)
     clock = pygame.time.Clock()
-    buttons = []
-    SCREEN.fill(WHITE)
-    title = FONT.render("Chọn số ô muốn mở", True, BLACK)
-    SCREEN.blit(title, (WIDTH//2 - title.get_width()//2, 50))
-    for i, num in enumerate(remaining_numbers):
-        row = i // 5
-        col = i % 5
-        x = 100 + col * 120
-        y = 150 + row * 100
-        btn = Button((x, y, 100, 60), str(num))
-        buttons.append((num, btn))
 
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                if back_button.collidepoint(event.pos):
-                    return  # Quay lại màn hình trước
-
-                    pos = event.pos
-                    for num, btn in buttons:
-                        if btn.is_clicked(pos):
-                            return num
-
-        for _, btn in buttons:
-            btn.draw(SCREEN)
-
-        
-        # Nút quay lại
-        back_button = pygame.Rect(WIDTH - 140, HEIGHT - 60, 120, 40)
-        pygame.draw.rect(SCREEN, (200, 50, 50), back_button)
-        pygame.draw.rect(SCREEN, BLACK, back_button, 2)
-        SCREEN.blit(SMALL_FONT.render("↩ Quay lại", True, WHITE), (WIDTH - 120, HEIGHT - 50))
-
-        pygame.display.flip()
-        clock.tick(30)
-
-def run_game_ui():
-    input_active = True
-    input_number = ""
-    input_boxes = []
-    players = []
-    clock = pygame.time.Clock()
-    phase = "number"
-    info_text = "Nhập số người chơi (tối thiểu 2):"
-    editing = 0
-
-    while input_active:
-        SCREEN.fill(WHITE)
-        text = FONT.render(info_text, True, BLACK)
-        SCREEN.blit(text, (50, 50))
-
-        if phase == "number":
-            box_rect = pygame.Rect(50, 120, 200, 40)
-            pygame.draw.rect(SCREEN, GRAY, box_rect)
-            num_surf = FONT.render(input_number, True, BLACK)
-            SCREEN.blit(num_surf, (box_rect.x + 10, box_rect.y + 5))
-        else:
-            for i, val in enumerate(input_boxes):
-                r = pygame.Rect(50, 120 + i*50, 300, 40)
-                pygame.draw.rect(SCREEN, GRAY, r)
-                if i == editing:
-                    pygame.draw.rect(SCREEN, (0, 255, 0), r, 3)
-                name = FONT.render(val, True, BLACK)
-                SCREEN.blit(name, (r.x + 10, r.y + 5))
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RETURN:
-                    if phase == "number":
-                        try:
-                            n = int(input_number)
-                            if n >= 2:
-                                input_boxes = ["" for _ in range(n)]
-                                phase = "names"
-                                input_number = ""
-                                info_text = "Nhập tên người chơi (click vào ô để gõ, Enter để bắt đầu):"
-                        except:
-                            input_number = ""
-                    else:
-                        if all(name.strip() != "" for name in input_boxes):
-                            players = [Player(name.strip()) for name in input_boxes]
-                            input_active = False
-                elif event.key == pygame.K_TAB or event.key == pygame.K_DOWN:
-                        editing = (editing + 1) % len(input_boxes)
-                elif event.key == pygame.K_BACKSPACE:
-                    if phase == "number":
-                        input_number = input_number[:-1]
-                    elif phase == "names":
-                        input_boxes[editing] = input_boxes[editing][:-1]
-                else:
-                    if phase == "number":
-                        input_number += event.unicode
-                    elif phase == "names":
-                        input_boxes[editing] += event.unicode
-            elif event.type == pygame.MOUSEBUTTONDOWN and phase == "names":
-                for i in range(len(input_boxes)):
-                    r = pygame.Rect(50, 120 + i*50, 300, 40)
-                    if r.collidepoint(event.pos):
-                        editing = i
-
-        
-        # Nút quay lại
-        back_button = pygame.Rect(WIDTH - 140, HEIGHT - 60, 120, 40)
-        pygame.draw.rect(SCREEN, (200, 50, 50), back_button)
-        pygame.draw.rect(SCREEN, BLACK, back_button, 2)
-        SCREEN.blit(SMALL_FONT.render("↩ Quay lại", True, WHITE), (WIDTH - 120, HEIGHT - 50))
-
-        pygame.display.flip()
-        clock.tick(30)
-
-    # --- Màn chơi chính ---
-    current_player_idx = 0
-    total_boxes = 10
-    box_numbers = list(range(1, total_boxes + 1))
-    random.shuffle(box_numbers)
+    boxes = list(range(1, num_boxes + 1))
     opened = []
+    current_player = 0
     result_message = ""
-    game_over = False
+    chosen_box = None
+    waiting_effect_input = False
+    effect_to_resolve = None
 
-    while True:
-        SCREEN.fill(WHITE)
-        current_player = players[current_player_idx]
+    running = True
+    while running:
+        screen.fill((255, 255, 255))
+
+        # Hiển thị người chơi + điểm
+        box_w = 160 if len(players) <= 5 else 130
+        per_row = 5
+        for i, p in enumerate(players):
+            row = i // per_row
+            col = i % per_row
+            text = f"{p.name}: {p.score} điểm"
+            font_dynamic = font if len(text) < 15 else pygame.font.SysFont(font_name, 20)
+            txt_surf = font_dynamic.render(text, True, (0, 0, 255) if i == current_player else (0, 0, 0))
+            screen.blit(txt_surf, (50 + col * box_w, 30 + row * 35))
+
+        # Hiển thị các ô may mắn
+        start_y = 150 if len(players) <= 5 else 180
+        box_per_row = 10 if num_boxes > 30 else 8
+        box_size = 50 if num_boxes > 30 else 60
+        for i, n in enumerate(boxes):
+            row = i // box_per_row
+            col = i % box_per_row
+            x = 50 + col * (box_size + 10)
+            y = start_y + row * (box_size + 10)
+            rect = pygame.Rect(x, y, box_size, box_size)
+            if n in opened:
+                pygame.draw.rect(screen, (200, 200, 200), rect)
+            else:
+                pygame.draw.rect(screen, (180, 180, 255), rect)
+            pygame.draw.rect(screen, (0, 0, 0), rect, 2)
+            label = font.render(str(n), True, (0, 0, 0))
+            screen.blit(label, (x + (box_size - label.get_width())//2, y + 5))
+
+        # Hiển thị kết quả hiệu ứng nếu có
+
+        # Nút kết thúc và quay lại
+        quit_rect = pygame.Rect(screen.get_width() - 180, screen.get_height() - 60, 140, 40)
+        pygame.draw.rect(screen, (200, 50, 50), quit_rect)
+        pygame.draw.rect(screen, (0, 0, 0), quit_rect, 2)
+        screen.blit(font.render("⛔ Kết thúc", True, (255, 255, 255)), (quit_rect.x + 15, quit_rect.y + 8))
+
+        back_rect = pygame.Rect(screen.get_width() - 350, screen.get_height() - 60, 140, 40)
+        pygame.draw.rect(screen, (180, 180, 180), back_rect)
+        pygame.draw.rect(screen, (0, 0, 0), back_rect, 2)
+        screen.blit(font.render("↩ Quay lại", True, (0, 0, 0)), (back_rect.x + 15, back_rect.y + 8))
+
+        if result_message:
+            msg = big_font.render(result_message, True, (0, 102, 204))
+            screen.blit(msg, (50, screen.get_height() - 80))
+
+        pygame.display.flip()
 
         for event in pygame.event.get():
+            # Bấm nút kết thúc/quay lại
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if quit_rect.collidepoint(event.pos):
+                    running = False
+                    break
+                elif back_rect.collidepoint(event.pos):
+                    return  # Quay lại menu (nếu cần gọi từ menu)
+
             if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+                running = False
+                break
 
-        for i, p in enumerate(players):
-            col = BLUE if i == current_player_idx and not game_over else BLACK
-            txt = FONT.render(f"{p.name}: {p.score} điểm", True, col)
-            SCREEN.blit(txt, (50, 30 + i * 40))
+            elif event.type == pygame.KEYDOWN and waiting_effect_input:
+                if event.key == pygame.K_1:
+                    effect_to_resolve['win'] = True
+                    waiting_effect_input = False
+                elif event.key == pygame.K_2:
+                    effect_to_resolve['win'] = False
+                    waiting_effect_input = False
 
-        remaining = [n for n in box_numbers if n not in opened]
-        for i, n in enumerate(box_numbers):
-            row = i // 5
-            col = i % 5
-            x = 100 + col * 120
-            y = 250 + row * 100
-            rect = pygame.Rect(x, y, 100, 60)
-            color = GRAY if n not in opened else (230, 230, 230)
-            pygame.draw.rect(SCREEN, color, rect)
-            pygame.draw.rect(SCREEN, BLACK, rect, 2)
-            label = FONT.render(str(n), True, BLACK)
-            SCREEN.blit(label, (x + 35, y + 15))
+            elif event.type == pygame.MOUSEBUTTONDOWN and not waiting_effect_input:
+                pos = pygame.mouse.get_pos()
+                for i, n in enumerate(boxes):
+                    if n in opened:
+                        continue
+                    row = i // box_per_row
+                    col = i % box_per_row
+                    x = 50 + col * (box_size + 10)
+                    y = start_y + row * (box_size + 10)
+                    rect = pygame.Rect(x, y, box_size, box_size)
+                    if rect.collidepoint(pos):
+                        chosen_box = n
+                        opened.append(n)
+                        player = players[current_player]
+                        effect_id = get_random_effect(dist_mode)
 
-        if not game_over and remaining:
-            msg = FONT.render("Chọn: [R]andom | [T]ự chọn", True, RED)
-            SCREEN.blit(msg, (50, HEIGHT - 100))
-            
-        # Nút quay lại
-        back_button = pygame.Rect(WIDTH - 140, HEIGHT - 60, 120, 40)
-        pygame.draw.rect(SCREEN, (200, 50, 50), back_button)
-        pygame.draw.rect(SCREEN, BLACK, back_button, 2)
-        SCREEN.blit(SMALL_FONT.render("↩ Quay lại", True, WHITE), (WIDTH - 120, HEIGHT - 50))
+                        if effect_id == 6:  # Kéo Búa Bao
+                            result_message = f"{player.name} chọn ô số {n} - Kéo Búa Bao! Nhấn 1: thắng, 2: thua"
+                            effect_to_resolve = {'player': player}
+                            waiting_effect_input = True
+                        else:
+                            result_message = f"{player.name} chọn ô số {n} - {apply_effect(effect_id, player, players)}"
 
-        pygame.display.flip()
-        waiting = True
-        while waiting:
-            for e in pygame.event.get():
-                if e.type == pygame.KEYDOWN:
-                    if e.key == pygame.K_r:
-                        chosen = random.choice(remaining)
-                        waiting = False
-                    elif e.key == pygame.K_t:
-                        chosen = show_choice_popup(remaining)
-                        waiting = False
-                elif e.type == pygame.QUIT:
+        # Nếu vừa nhập kết quả Kéo Búa Bao xong
+        if not waiting_effect_input and effect_to_resolve:
+            player = effect_to_resolve['player']
+            if effect_to_resolve['win']:
+                player.score += 10
+                result_message = f"{player.name} thắng Kéo Búa Bao! +10 điểm"
+            else:
+                result_message = f"{player.name} thua Kéo Búa Bao! Không có điểm"
+            effect_to_resolve = None
+            waiting_effect_input = False
+            # Chưa tăng lượt vội, chờ tick sau
+            player = effect_to_resolve['player']
+            if effect_to_resolve['win']:
+                player.score += 10
+                result_message = f"{player.name} thắng Kéo Búa Bao! +10 điểm"
+                pygame.time.delay(1000)
+            else:
+                result_message = f"{player.name} thua Kéo Búa Bao! Không có điểm"
+                pygame.time.delay(1000)
+                effect_to_resolve = None
 
-                    
-                    pygame.quit()
-                    sys.exit()
-            if 'chosen' in locals():
-                opened.append(chosen)
-            effect_id = random.randint(1, 6)
-            result_message = apply_effect(effect_id, current_player, players)
-            current_player_idx = (current_player_idx + 1) % len(players)
-
-        msg = SMALL_FONT.render(result_message, True, RED)
-        SCREEN.blit(msg, (50, HEIGHT - 60))
-
-        if len(opened) == len(box_numbers) and not game_over:
-            game_over = True
-            players.sort(key=lambda x: -x.score)
-            result_message = "🏆 KẾT THÚC GAME:\n" + "\n".join([f"{i+1}. {p.name} - {p.score} điểm" for i, p in enumerate(players)])
-
-        
-        # Nút quay lại
-        back_button = pygame.Rect(WIDTH - 140, HEIGHT - 60, 120, 40)
-        pygame.draw.rect(SCREEN, (200, 50, 50), back_button)
-        pygame.draw.rect(SCREEN, BLACK, back_button, 2)
-        SCREEN.blit(SMALL_FONT.render("↩ Quay lại", True, WHITE), (WIDTH - 120, HEIGHT - 50))
-
-        pygame.display.flip()
-        clock.tick(30)
+            players.sort(key=lambda p: p.score, reverse=True)
+            end_running = True
+            while end_running:
+                screen.fill((255, 255, 255))
+                title = big_font.render('🏆 KẾT THÚC GAME', True, (200, 50, 50))
+                screen.blit(title, (screen.get_width() // 2 - title.get_width() // 2, 50))
+                for i, p in enumerate(players):
+                    text = font.render(f'{i+1}. {p.name}: {p.score} điểm', True, (0, 0, 0))
+                    screen.blit(text, (100, 120 + i * 35))
+                # Nút
+                quit_rect = pygame.Rect(screen.get_width() - 180, screen.get_height() - 60, 140, 40)
+                pygame.draw.rect(screen, (200, 50, 50), quit_rect)
+                pygame.draw.rect(screen, (0, 0, 0), quit_rect, 2)
+                screen.blit(font.render('❌ Thoát', True, (255, 255, 255)), (quit_rect.x + 25, quit_rect.y + 8))
+                back_rect = pygame.Rect(screen.get_width() - 350, screen.get_height() - 60, 140, 40)
+                pygame.draw.rect(screen, (180, 180, 180), back_rect)
+                pygame.draw.rect(screen, (0, 0, 0), back_rect, 2)
+                screen.blit(font.render('↩ Menu', True, (0, 0, 0)), (back_rect.x + 30, back_rect.y + 8))
+                pygame.display.flip()
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        exit()
+                    elif event.type == pygame.MOUSEBUTTONDOWN:
+                        if quit_rect.collidepoint(event.pos):
+                            pygame.quit()
+                            exit()
+                        elif back_rect.collidepoint(event.pos):
+                            return
+                clock.tick(30)
