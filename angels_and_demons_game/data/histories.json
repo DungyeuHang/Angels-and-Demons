@@ -538,5 +538,95 @@
         "score": 0
       }
     ]
+  },
+  {
+    "timestamp": "2025-06-29 21:34:18",
+    "players": [
+      {
+        "name": "Người 1",
+        "score": 10
+      },
+      {
+        "name": "Người 2",
+        "score": 65
+      },
+      {
+        "name": "Người 3",
+        "score": 25
+      },
+      {
+        "name": "Người 4",
+        "score": 40
+      },
+      {
+        "name": "Người 5",
+        "score": 60
+      },
+      {
+        "name": "Người 6",
+        "score": 80
+      },
+      {
+        "name": "Người 7",
+        "score": 15
+      },
+      {
+        "name": "Người 8",
+        "score": 55
+      },
+      {
+        "name": "Người 9",
+        "score": 80
+      },
+      {
+        "name": "Người 10",
+        "score": 80
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-06-29 21:50:13",
+    "players": [
+      {
+        "name": "Người 1",
+        "score": -80
+      },
+      {
+        "name": "Người 2",
+        "score": 80
+      },
+      {
+        "name": "Người 3",
+        "score": 95
+      },
+      {
+        "name": "Người 4",
+        "score": 75
+      },
+      {
+        "name": "Người 5",
+        "score": 50
+      },
+      {
+        "name": "Người 6",
+        "score": 85
+      },
+      {
+        "name": "Người 7",
+        "score": 120
+      },
+      {
+        "name": "Người 8",
+        "score": 60
+      },
+      {
+        "name": "Người 9",
+        "score": 45
+      },
+      {
+        "name": "Người 10",
+        "score": 100
+      }
+    ]
   }
 ]

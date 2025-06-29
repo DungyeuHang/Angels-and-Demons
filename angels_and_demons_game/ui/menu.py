@@ -4,8 +4,13 @@ from ui.custom_setup import run_custom_setup_ui
 from ui.histories_screen import show_history_screen
 from ui.game_screen import run_game_ui
 import os
+import sys
+
 os.environ['SDL_VIDEO_CENTERED'] = '1'
-os.chdir(os.path.dirname(__file__))  # đảm bảo chạy từ đúng thư mục chứa main
+if getattr(sys, 'frozen', False):
+    BASE_DIR = sys._MEIPASS
+else:
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 def run_menu_ui():
     pygame.init()
@@ -14,8 +19,8 @@ def run_menu_ui():
     #font = pygame.font.SysFont("Times New Roman", 32)
     #font = pygame.font.SysFont("Segoe UI Emoji", 32)
 
-    FONT_PATH = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
-    font = pygame.font.Font(FONT_PATH, 20)
+    font_path = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
+    font = pygame.font.Font(font_path, 20)
 
 
 

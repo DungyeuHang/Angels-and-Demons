@@ -5,12 +5,20 @@ import json
 from datetime import datetime
 from mechanics.effects import apply_effect
 from mechanics.randomizer import get_random_effect
+import sys
+
+
 
 os.environ['SDL_VIDEO_CENTERED'] = '1'
-os.chdir(os.path.dirname(__file__))  # đảm bảo chạy từ đúng thư mục chứa main
+
+if getattr(sys, 'frozen', False):
+    BASE_DIR = sys._MEIPASS
+else:
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 def save_game_history(players):
-    filepath = os.path.join(os.path.dirname(__file__), "..", "data", "histories.json")
+    filepath = os.path.join(BASE_DIR, "data", "histories.json")
+
     data = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "players": [{"name": p.name, "score": p.score} for p in players]
@@ -32,8 +40,8 @@ def run_game_ui(players, num_boxes, dist_mode):
 
     #font = pygame.font.SysFont("Comic Sans MS", 28)
     #font = pygame.font.SysFont("Times New Roman", 28)
-    FONT_PATH = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
-    font = pygame.font.Font(FONT_PATH, 20)
+    font_path = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
+    font = pygame.font.Font(font_path, 20)
 
     clock = pygame.time.Clock()
 
