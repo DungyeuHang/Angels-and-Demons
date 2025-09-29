@@ -1,5 +1,5 @@
 # effects.py - Không còn xử lý Kéo Búa Bao trong đây
-
+import random
 def apply_effect(effect_id, player, all_players=None):
     if effect_id == 1:  # Thiên thần
         player.add_score(15)
@@ -10,7 +10,7 @@ def apply_effect(effect_id, player, all_players=None):
     elif effect_id == 3:  # Súng
         if all_players and len(all_players) > 1:
             others = [p for p in all_players if p != player]
-            target = others[0]
+            target = random.choice(others)
             target.subtract_score(20)
             player.add_score(20)
             return f"{player.name} đã dùng súng cướp 20 điểm từ {target.name}!"

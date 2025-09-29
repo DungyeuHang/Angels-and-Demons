@@ -628,5 +628,50 @@
         "score": 100
       }
     ]
+  },
+  {
+    "timestamp": "2025-09-29 22:47:15",
+    "players": [
+      {
+        "name": "Người 1",
+        "score": -40
+      },
+      {
+        "name": "Người 2",
+        "score": 75
+      },
+      {
+        "name": "Người 3",
+        "score": 160
+      },
+      {
+        "name": "Người 4",
+        "score": -20
+      },
+      {
+        "name": "Người 5",
+        "score": 105
+      },
+      {
+        "name": "Người 6",
+        "score": 0
+      },
+      {
+        "name": "Người 7",
+        "score": 20
+      },
+      {
+        "name": "Người 8",
+        "score": 30
+      },
+      {
+        "name": "Người 9",
+        "score": 30
+      },
+      {
+        "name": "Người 10",
+        "score": 60
+      }
+    ]
   }
 ]
