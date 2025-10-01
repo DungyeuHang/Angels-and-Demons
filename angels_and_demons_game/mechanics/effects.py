@@ -21,5 +21,11 @@ def apply_effect(effect_id, player, all_players=None):
     elif effect_id == 5:  # Trúng xổ số
         player.add_score(50)
         return "Trúng xổ số! +50 điểm."
-
-
+    elif effect_id == 7:
+        player.add_score(player.score)
+        return f"{player.name} được nhân đôi số điểm hiện tại! 🎉"   
+    elif effect_id == 8:  # Chia đôi điểm
+        old_score = player.score
+        lost = old_score // 2
+        player.subtract_score(lost)  # trừ một nửa điểm
+        return f"{player.name} bị chia đôi điểm, mất {lost} điểm! 😢"

@@ -673,5 +673,275 @@
         "score": 60
       }
     ]
+  },
+  {
+    "timestamp": "2025-10-01 21:53:52",
+    "players": [
+      {
+        "name": "Người 1",
+        "score": 9
+      },
+      {
+        "name": "Người 2",
+        "score": 160
+      },
+      {
+        "name": "Người 3",
+        "score": 20
+      },
+      {
+        "name": "Người 4",
+        "score": 30
+      },
+      {
+        "name": "Người 5",
+        "score": 20
+      },
+      {
+        "name": "Người 6",
+        "score": -65
+      },
+      {
+        "name": "Người 7",
+        "score": 35
+      },
+      {
+        "name": "Người 8",
+        "score": 10
+      },
+      {
+        "name": "Người 9",
+        "score": 45
+      },
+      {
+        "name": "Người 10",
+        "score": 65
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-10-01 21:57:55",
+    "players": [
+      {
+        "name": "Người 1",
+        "score": 50
+      },
+      {
+        "name": "Người 2",
+        "score": 25
+      },
+      {
+        "name": "Người 3",
+        "score": 0
+      },
+      {
+        "name": "Người 4",
+        "score": -25
+      },
+      {
+        "name": "Người 5",
+        "score": -15
+      },
+      {
+        "name": "Người 6",
+        "score": 10
+      },
+      {
+        "name": "Người 7",
+        "score": -40
+      },
+      {
+        "name": "Người 8",
+        "score": 20
+      },
+      {
+        "name": "Người 9",
+        "score": 20
+      },
+      {
+        "name": "Người 10",
+        "score": 10
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-10-01 22:01:21",
+    "players": [
+      {
+        "name": "Người 1",
+        "score": 90
+      },
+      {
+        "name": "Người 2",
+        "score": 15
+      },
+      {
+        "name": "Người 3",
+        "score": 5
+      },
+      {
+        "name": "Người 4",
+        "score": 38
+      },
+      {
+        "name": "Người 5",
+        "score": 130
+      },
+      {
+        "name": "Người 6",
+        "score": -85
+      },
+      {
+        "name": "Người 7",
+        "score": 90
+      },
+      {
+        "name": "Người 8",
+        "score": -10
+      },
+      {
+        "name": "Người 9",
+        "score": 25
+      },
+      {
+        "name": "Người 10",
+        "score": 60
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-10-01 22:08:02",
+    "players": [
+      {
+        "name": "Người 1",
+        "score": 105
+      },
+      {
+        "name": "Người 2",
+        "score": 33
+      },
+      {
+        "name": "Người 3",
+        "score": 40
+      },
+      {
+        "name": "Người 4",
+        "score": 120
+      },
+      {
+        "name": "Người 5",
+        "score": 25
+      },
+      {
+        "name": "Người 6",
+        "score": 55
+      },
+      {
+        "name": "Người 7",
+        "score": 33
+      },
+      {
+        "name": "Người 8",
+        "score": 65
+      },
+      {
+        "name": "Người 9",
+        "score": 65
+      },
+      {
+        "name": "Người 10",
+        "score": -5
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-10-01 22:10:57",
+    "players": [
+      {
+        "name": "Người 1",
+        "score": -20
+      },
+      {
+        "name": "Người 2",
+        "score": 30
+      },
+      {
+        "name": "Người 3",
+        "score": 16
+      },
+      {
+        "name": "Người 4",
+        "score": 35
+      },
+      {
+        "name": "Người 5",
+        "score": 0
+      },
+      {
+        "name": "Người 6",
+        "score": 30
+      },
+      {
+        "name": "Người 7",
+        "score": 10
+      },
+      {
+        "name": "Người 8",
+        "score": 15
+      },
+      {
+        "name": "Người 9",
+        "score": -25
+      },
+      {
+        "name": "Người 10",
+        "score": 15
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-10-01 22:12:54",
+    "players": [
+      {
+        "name": "Người 1",
+        "score": 105
+      },
+      {
+        "name": "Người 2",
+        "score": 140
+      },
+      {
+        "name": "Người 3",
+        "score": 80
+      },
+      {
+        "name": "Người 4",
+        "score": 35
+      },
+      {
+        "name": "Người 5",
+        "score": 125
+      },
+      {
+        "name": "Người 6",
+        "score": 45
+      },
+      {
+        "name": "Người 7",
+        "score": 105
+      },
+      {
+        "name": "Người 8",
+        "score": 25
+      },
+      {
+        "name": "Người 9",
+        "score": 98
+      },
+      {
+        "name": "Người 10",
+        "score": 95
+      }
+    ]
   }
 ]
