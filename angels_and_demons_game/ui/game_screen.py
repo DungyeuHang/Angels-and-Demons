@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 from mechanics.effects import apply_effect
 from mechanics.randomizer import get_random_effect
+from mechanics.effects import play_effect
 import sys
 
 
@@ -130,6 +131,7 @@ def run_game_ui(players, num_boxes, dist_mode):
                             opened.append(num)
                             effect_id = get_random_effect(dist_mode)
                             if effect_id == 6:
+                                play_effect(6)
                                 result_message = f"{players[current_player].name} mở ô {num} - Kéo Búa Bao! (Nhấn 1: thắng, 2: thua)"
                                 effect_to_resolve = {'player': players[current_player]}
                                 waiting_effect_input = True
