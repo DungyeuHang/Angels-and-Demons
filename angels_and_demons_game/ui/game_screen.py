@@ -73,14 +73,30 @@ def run_game_ui(players, num_boxes, dist_mode):
             col = i % players_per_row
             x = start_x + col * spacing_x
             y = start_y + row * spacing_y
+
+            # Xác định màu chữ
             if i == current_player:
-                color = (50, 100, 255)
+                color = (50, 100, 255)         # người chơi hiện hành: xanh
             elif player.score == top_score and top_score > 0:
-                color = (220, 170, 0)
+                color = (220, 170, 0)          # người có top score: vàng
             else:
-                color = (0, 0, 0)
+                color = (0, 0, 0)              # bình thường: đen
+
+            # Vẽ text
             score_text = font.render(f"{player.name}: {player.score} điểm", True, color)
-            canvas.blit(score_text, (x, y))
+            text_rect = score_text.get_rect(topleft=(x, y))
+            canvas.blit(score_text, text_rect)
+
+            # Nếu là người chơi hiện hành -> vẽ khung quanh tên
+            if i == current_player:
+                padding = 6  # độ dày khoảng cách giữa khung và chữ
+                border_rect = pygame.Rect(
+                    text_rect.left - padding,
+                    text_rect.top - padding,
+                    text_rect.width + padding * 2,
+                    text_rect.height + padding * 2,
+                )
+                pygame.draw.rect(canvas, (50, 100, 255), border_rect, 2, border_radius=6)
 
         cols = 10
         for i, num in enumerate(boxes):
