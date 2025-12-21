@@ -1,0 +1,42 @@
+Create an interactive vocabulary learning interface for young learners with exactly 10 vocabulary words for the topic “My favourite subjects”
+The Vocabulary are: phisical education, English teacher, painter, scientist, maths teacher, IT teacher, singer, IT
+
+Each vocabulary item must include:
+
+Word (English)
+
+Part of Speech
+
+IPA
+
+Meaning (Vietnamese)
+
+Click Interaction:
+
+When the user clicks the word, show:
+
+The sound of the vocab.
+
+A simple, kid-friendly illustration
+
+One easy example sentence
+
+One short practice exercise (such as fill-in-the-blank or choose the correct option)
+
+Answer Key immediately below the exercise
+
+Progress Tracking:
+
+When the learner answers correctly, show a green tick and update a progress bar that tracks how many of the 10 words have been completed.
+
+Design requirements:
+
+Use a bright, child-friendly, modern layout.
+
+Each vocabulary item should appear as a card or button that expands/collapses when clicked.
+
+Keep all sentences simple and easy for kids.
+
+Make the interface mobile-friendly.
+
+Generate all  interactive vocabulary items for the topic.
