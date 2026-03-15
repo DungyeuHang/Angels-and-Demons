@@ -43,5 +43,50 @@
         "score": 0
       }
     ]
+  },
+  {
+    "timestamp": "2026-03-15 18:58:18",
+    "players": [
+      {
+        "name": "Người 1",
+        "score": 50
+      },
+      {
+        "name": "Người 2",
+        "score": 30
+      },
+      {
+        "name": "Người 3",
+        "score": -25
+      },
+      {
+        "name": "Người 4",
+        "score": 10
+      },
+      {
+        "name": "Người 5",
+        "score": 0
+      },
+      {
+        "name": "Người 6",
+        "score": 0
+      },
+      {
+        "name": "Người 7",
+        "score": 0
+      },
+      {
+        "name": "Người 8",
+        "score": 0
+      },
+      {
+        "name": "Người 9",
+        "score": 0
+      },
+      {
+        "name": "Người 10",
+        "score": 0
+      }
+    ]
   }
 ]
