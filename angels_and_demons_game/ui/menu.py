@@ -31,13 +31,13 @@ def render_centered_text(surface, font, text, center, color):
 
 def activate_option(index, screen, font):
     if index == 0:
-        players, num_boxes, dist_mode, custom_weights = run_default_setup_ui()
+        players, num_boxes, dist_mode, custom_weights, turn_mode = run_default_setup_ui()
         if players:
-            run_game_ui(players, num_boxes, dist_mode, custom_weights)
+            run_game_ui(players, num_boxes, dist_mode, custom_weights, turn_mode)
     elif index == 1:
-        players, num_boxes, dist_mode, custom_weights = run_custom_mode_ui()
+        players, num_boxes, dist_mode, custom_weights, turn_mode = run_custom_mode_ui()
         if players:
-            run_game_ui(players, num_boxes, dist_mode, custom_weights)
+            run_game_ui(players, num_boxes, dist_mode, custom_weights, turn_mode)
     elif index == 2:
         show_history_screen(screen, font)
     elif index == 3:

@@ -2,6 +2,7 @@ import json
 import os
 
 from models.history import get_user_data_dir
+from models.turn_modes import normalize_turn_mode
 
 
 CUSTOM_MODES_FILE_NAME = "custom_modes.json"
@@ -19,7 +20,18 @@ def load_custom_modes():
     except (FileNotFoundError, json.JSONDecodeError):
         return []
 
-    return modes if isinstance(modes, list) else []
+    if not isinstance(modes, list):
+        return []
+
+    sanitized_modes = []
+    for mode in modes:
+        if not isinstance(mode, dict):
+            continue
+        updated_mode = dict(mode)
+        updated_mode["turn_mode"] = normalize_turn_mode(mode.get("turn_mode"))
+        sanitized_modes.append(updated_mode)
+
+    return sanitized_modes
 
 
 def write_custom_modes(modes):

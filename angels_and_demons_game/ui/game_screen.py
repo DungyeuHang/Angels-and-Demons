@@ -8,6 +8,10 @@ from mechanics.effects import apply_effect
 from mechanics.effects import play_effect
 from mechanics.randomizer import get_random_effect
 from models.history import save_game_history_entry
+from models.turn_modes import MANUAL_TURN_MODE
+from models.turn_modes import SEQUENTIAL_TURN_MODE
+from models.turn_modes import TURN_MODE_LABELS
+from models.turn_modes import normalize_turn_mode
 from ui.theme import PALETTE
 from ui.theme import draw_background
 from ui.theme import draw_button
@@ -59,7 +63,13 @@ def get_banner_style(message):
     return PALETTE["azure"], (216, 226, 242)
 
 
-def run_game_ui(players, num_boxes, dist_mode, custom_weights=None):
+def get_next_player_index(current_player, total_players, turn_mode):
+    if turn_mode == SEQUENTIAL_TURN_MODE:
+        return (current_player + 1) % total_players
+    return current_player
+
+
+def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SEQUENTIAL_TURN_MODE):
     pygame.init()
     screen = pygame.display.set_mode((1480, 860), pygame.RESIZABLE)
     pygame.display.set_caption("Angels and Demons - Game")
@@ -73,10 +83,11 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None):
     clock = pygame.time.Clock()
     canvas_size = (1480, 860)
     canvas = pygame.Surface(canvas_size)
+    turn_mode = normalize_turn_mode(turn_mode)
 
     boxes = list(range(1, num_boxes + 1))
     opened = []
-    current_player = 0
+    current_player = 0 if turn_mode == SEQUENTIAL_TURN_MODE else None
     result_message = ""
     waiting_effect_input = False
     effect_to_resolve = None
@@ -98,7 +109,7 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None):
 
         render_text(canvas, title_font, "Bang diem", (sidebar_rect.x + 28, sidebar_rect.y + 20), PALETTE["text"])
 
-        info_panel_height = 156 if len(players) <= 8 else 132 if len(players) <= 16 else 110
+        info_panel_height = 176 if len(players) <= 8 else 150 if len(players) <= 16 else 128
         player_cards_top = sidebar_rect.y + 82
         players_area_bottom = sidebar_rect.bottom - info_panel_height - 24
         players_area_height = max(80, players_area_bottom - player_cards_top)
@@ -127,12 +138,14 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None):
         player_card_width = (players_area_width - col_gap * (player_columns - 1)) // player_columns
         player_card_height = max(24, (players_area_height - row_gap * max(0, player_rows - 1)) // player_rows)
 
+        player_hitboxes = []
         for index, player in enumerate(players):
             row = index // player_columns
             col = index % player_columns
             card_x = sidebar_rect.x + 20 + col * (player_card_width + col_gap)
             card_y = player_cards_top + row * (player_card_height + row_gap)
             card_rect = pygame.Rect(card_x, card_y, player_card_width, player_card_height)
+            player_hitboxes.append((index, card_rect))
 
             if index == current_player:
                 fill_color = (242, 228, 188)
@@ -199,10 +212,22 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None):
         render_text(canvas, font, "Thong tin", (info_rect.x + 18, info_rect.y + 16), PALETTE["text"])
         remaining_boxes = len(boxes) - len(opened)
         stats_y = info_rect.y + 52
-        stats_gap = 24 if info_panel_height >= 132 else 22
-        render_text(canvas, small_font, f"So o con lai: {remaining_boxes}", (info_rect.x + 18, stats_y), PALETTE["muted"])
-        render_text(canvas, small_font, f"So o da mo: {len(opened)}", (info_rect.x + 18, stats_y + stats_gap), PALETTE["muted"])
-        helper_text = "Nhan 1 neu thang, 2 neu thua." if waiting_effect_input else "Chon o bat ky de mo."
+        stats_gap = 24 if info_panel_height >= 150 else 20
+        selected_name = players[current_player].name if current_player is not None else "Chua chon"
+        render_text(canvas, small_font, f"Kieu luot: {TURN_MODE_LABELS[turn_mode]}", (info_rect.x + 18, stats_y), PALETTE["muted"])
+        if turn_mode == MANUAL_TURN_MODE:
+            render_text(canvas, small_font, f"Dang chon: {selected_name}", (info_rect.x + 18, stats_y + stats_gap), PALETTE["muted"])
+        else:
+            render_text(canvas, small_font, f"Dang den luot: {selected_name}", (info_rect.x + 18, stats_y + stats_gap), PALETTE["muted"])
+        render_text(canvas, small_font, f"Con lai: {remaining_boxes} | Da mo: {len(opened)}", (info_rect.x + 18, stats_y + stats_gap * 2), PALETTE["muted"])
+        if waiting_effect_input:
+            helper_text = "Nhan 1 neu thang, 2 neu thua."
+        elif turn_mode == MANUAL_TURN_MODE and current_player is None:
+            helper_text = "Click vao nguoi choi ben trai truoc khi mo o."
+        elif turn_mode == MANUAL_TURN_MODE:
+            helper_text = "Co the doi nguoi choi ben trai truoc khi mo o."
+        else:
+            helper_text = "Chon o bat ky de mo."
         render_text(canvas, small_font, helper_text, (info_rect.x + 18, info_rect.bottom - 30), PALETTE["muted"])
 
         render_text(canvas, title_font, "Ban co", (board_rect.x + 26, board_rect.y + 18), PALETTE["text"])
@@ -283,7 +308,20 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None):
                     show_final_result(screen, title_font, font, players)
                     return
 
+                if turn_mode == MANUAL_TURN_MODE and not waiting_effect_input:
+                    selected_player = False
+                    for index, card_rect in player_hitboxes:
+                        if card_rect.collidepoint(pos):
+                            current_player = index
+                            selected_player = True
+                            break
+                    if selected_player:
+                        continue
+
                 if not waiting_effect_input:
+                    if turn_mode == MANUAL_TURN_MODE and current_player is None:
+                        result_message = "Hay chon nguoi choi truoc khi mo o."
+                        continue
                     for index, num in enumerate(boxes):
                         x = start_x + (index % cols) * (box_size + gap)
                         y = start_y + (index // cols) * (box_size + gap)
@@ -301,18 +339,18 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None):
                                     f"{players[current_player].name} mo o {num} - "
                                     f"{apply_effect(effect_id, players[current_player], players)}"
                                 )
-                                current_player = (current_player + 1) % len(players)
+                                current_player = get_next_player_index(current_player, len(players), turn_mode)
                             break
             elif event.type == pygame.KEYDOWN and waiting_effect_input:
                 if event.key == pygame.K_1:
                     effect_to_resolve["player"].add_score(10)
                     result_message = f"{effect_to_resolve['player'].name} thang Keo bua bao! +10 diem."
-                    current_player = (current_player + 1) % len(players)
+                    current_player = get_next_player_index(current_player, len(players), turn_mode)
                     waiting_effect_input = False
                     effect_to_resolve = None
                 elif event.key == pygame.K_2:
                     result_message = f"{effect_to_resolve['player'].name} thua Keo bua bao."
-                    current_player = (current_player + 1) % len(players)
+                    current_player = get_next_player_index(current_player, len(players), turn_mode)
                     waiting_effect_input = False
                     effect_to_resolve = None
 
