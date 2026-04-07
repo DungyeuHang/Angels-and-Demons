@@ -5,6 +5,7 @@ import sys
 import pygame
 
 from mechanics.effects import apply_effect
+from mechanics.effects import get_effect_definition
 from mechanics.effects import play_effect
 from mechanics.randomizer import get_random_effect
 from models.history import save_game_history_entry
@@ -52,21 +53,101 @@ def truncate_text(font, text, max_width):
     return f"{trimmed.rstrip()}{ellipsis}"
 
 
-def get_banner_style(message):
+def get_effect_palette(effect_id=None, message=""):
+    effect_id = str(effect_id or "")
+    effect_definition = get_effect_definition(effect_id) if effect_id else None
+    operation = str(effect_definition.get("operation", "")) if effect_definition else ""
     lowered = message.lower()
-    if "thien" in lowered or "angel" in lowered:
-        return PALETTE["gold"], (244, 233, 196)
-    if "ac" in lowered or "devil" in lowered:
-        return PALETTE["crimson"], (239, 209, 213)
-    if "may" in lowered or "lucky" in lowered:
-        return PALETTE["mint"], (214, 232, 223)
-    return PALETTE["azure"], (216, 226, 242)
+
+    if effect_id in {"angel", "lottery", "double"} or operation in {"add_self", "multiply_self", "others_gain", "all_gain"} or "thien" in lowered:
+        return PALETTE["gold"], (247, 239, 212)
+    if effect_id in {"devil", "half"} or operation in {"subtract_self", "divide_self", "others_lose", "all_lose"} or "ac" in lowered:
+        return PALETTE["crimson"], (243, 223, 226)
+    if effect_id in {"lucky"} or operation in {"bonus_turn"} or "may" in lowered or "them luot" in lowered:
+        return PALETTE["mint"], (221, 236, 228)
+    if effect_id in {"rps"} or operation in {"shield_self"} or "la chan" in lowered:
+        return (132, 119, 96), (236, 231, 220)
+    if operation in {"steal_random", "give_random", "swap_random"} or "cuop" in lowered or "cho " in lowered or "doi diem" in lowered:
+        return (150, 101, 63), (240, 224, 204)
+    if operation in {"skip_random", "reverse_order"} or "mat luot" in lowered or "dao chieu" in lowered:
+        return (112, 77, 122), (233, 223, 236)
+    return (101, 87, 71), (235, 228, 218)
 
 
-def get_next_player_index(current_player, total_players, turn_mode):
-    if turn_mode == SEQUENTIAL_TURN_MODE:
-        return (current_player + 1) % total_players
-    return current_player
+def get_turn_direction_label(turn_direction):
+    return "Xuoi" if turn_direction >= 0 else "Nguoc"
+
+
+def build_status_tokens(player):
+    tokens = []
+    if player.shields > 0:
+        tokens.append((f"S{player.shields}", PALETTE["azure"]))
+    if player.bonus_turns > 0:
+        tokens.append((f"+{player.bonus_turns}", PALETTE["mint"]))
+    if player.skip_turns > 0:
+        tokens.append((f"-{player.skip_turns}", PALETTE["crimson"]))
+    return tokens
+
+
+def consume_pending_skip(player):
+    if player.consume_skip_turn():
+        return f"{player.name} bi mat 1 luot!"
+    return None
+
+
+def resolve_next_player(current_player, players, turn_mode, turn_direction):
+    if current_player is None or not players:
+        return current_player, []
+
+    active_player = players[current_player]
+    if active_player.consume_bonus_turn():
+        return current_player, []
+
+    if turn_mode == MANUAL_TURN_MODE:
+        return current_player, []
+
+    skipped_names = []
+    total_players = len(players)
+    for _ in range(total_players):
+        current_player = (current_player + turn_direction) % total_players
+        if players[current_player].consume_skip_turn():
+            skipped_names.append(players[current_player].name)
+            continue
+        return current_player, skipped_names
+    return current_player, skipped_names
+
+
+def set_banner(message, effect_id=None):
+    return {
+        "message": message,
+        "effect_id": effect_id,
+        "created_at": pygame.time.get_ticks(),
+    }
+
+
+def append_skip_notice(message, skipped_names):
+    if not skipped_names:
+        return message
+    if len(skipped_names) == 1:
+        return f"{message} {skipped_names[0]} bi bo qua luot."
+    return f"{message} {', '.join(skipped_names)} bi bo qua luot."
+
+
+def get_stat_cards(players):
+    if not players:
+        return []
+
+    opened_star = max(players, key=lambda player: (player.boxes_opened, player.score, -player.biggest_loss))
+    steal_star = max(players, key=lambda player: (player.steal_points, player.score))
+    shield_star = max(players, key=lambda player: (player.shield_blocks, player.shields, player.score))
+    combo_star = max(players, key=lambda player: (player.biggest_gain, player.score))
+
+    return [
+        ("Mo o nhieu", opened_star.name, f"{opened_star.boxes_opened} o"),
+        ("Cuop diem", steal_star.name, f"{steal_star.steal_points} diem"),
+        ("Dung la chan", shield_star.name, f"{shield_star.shield_blocks} lan"),
+        ("Bung no lon", combo_star.name, f"+{combo_star.biggest_gain} diem"),
+    ]
 
 
 def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SEQUENTIAL_TURN_MODE):
@@ -84,16 +165,17 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SE
     canvas_size = (1480, 860)
     canvas = pygame.Surface(canvas_size)
     turn_mode = normalize_turn_mode(turn_mode)
+    game_state = {"turn_direction": 1, "turn_mode": turn_mode}
 
     boxes = list(range(1, num_boxes + 1))
-    opened = []
+    opened = set()
+    box_effects = {}
     current_player = 0 if turn_mode == SEQUENTIAL_TURN_MODE else None
-    result_message = ""
+    banner = None
     waiting_effect_input = False
     effect_to_resolve = None
-    running = True
 
-    while running:
+    while True:
         tick = pygame.time.get_ticks()
         draw_background(canvas, tick)
 
@@ -109,7 +191,7 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SE
 
         render_text(canvas, title_font, "Bang diem", (sidebar_rect.x + 28, sidebar_rect.y + 20), PALETTE["text"])
 
-        info_panel_height = 176 if len(players) <= 8 else 150 if len(players) <= 16 else 128
+        info_panel_height = 196 if len(players) <= 8 else 170 if len(players) <= 16 else 146
         player_cards_top = sidebar_rect.y + 82
         players_area_bottom = sidebar_rect.bottom - info_panel_height - 24
         players_area_height = max(80, players_area_bottom - player_cards_top)
@@ -156,22 +238,22 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SE
                 border_color = PALETTE["panel_dark"]
 
             draw_panel(canvas, card_rect, fill_color=fill_color, border_color=border_color, radius=20, shadow=False)
+
             badge_rect = None
             content_right = card_rect.right - 12
             show_turn_badge = index == current_player and player_card_width >= 150 and player_card_height >= 30
             if show_turn_badge:
-                badge_width = 58 if player_card_width >= 150 else 52 if player_card_width >= 110 else 44
+                badge_width = 58
                 badge_height = min(26, max(18, player_card_height - 8))
                 badge_y = card_rect.y + max(4, (player_card_height - badge_height) // 2)
                 badge_rect = pygame.Rect(card_rect.right - badge_width - 8, badge_y, badge_width, badge_height)
                 content_right = badge_rect.x - 8
             elif index == current_player:
-                indicator_radius = 5 if player_card_height >= 32 else 4
                 pygame.draw.circle(
                     canvas,
                     PALETTE["gold_dark"],
-                    (card_rect.right - 12, card_rect.y + max(12, indicator_radius + 6)),
-                    indicator_radius,
+                    (card_rect.right - 12, card_rect.y + max(12, 10)),
+                    5 if player_card_height >= 32 else 4,
                 )
 
             if player_card_height >= 54 and player_card_width >= 150:
@@ -180,8 +262,8 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SE
                 max_text_width = max(24, content_right - (card_rect.x + 14))
                 name_text = truncate_text(name_font, player.name, max_text_width)
                 score_text = truncate_text(score_font, f"{player.score} diem", max_text_width)
-                render_text(canvas, name_font, name_text, (card_rect.x + 14, card_rect.y + 9), PALETTE["text"])
-                render_text(canvas, score_font, score_text, (card_rect.x + 14, card_rect.y + 33), PALETTE["muted"])
+                render_text(canvas, name_font, name_text, (card_rect.x + 14, card_rect.y + 7), PALETTE["text"])
+                render_text(canvas, score_font, score_text, (card_rect.x + 14, card_rect.y + 30), PALETTE["muted"])
             else:
                 name_font = small_font if player_card_height >= 30 else tiny_font
                 score_font = tiny_font
@@ -195,10 +277,21 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SE
                 canvas.blit(name_surface, (card_rect.x + 10, baseline_y))
                 canvas.blit(score_surface, (score_x, card_rect.centery - score_surface.get_height() // 2))
 
+            status_tokens = build_status_tokens(player)
+            if status_tokens and player_card_height >= 34:
+                token_x = card_rect.x + 12
+                token_y = card_rect.bottom - 20 if player_card_height >= 54 else card_rect.y + 6
+                for label, token_color in status_tokens[:3]:
+                    token_rect = pygame.Rect(token_x, token_y, 28, 16)
+                    draw_panel(canvas, token_rect, fill_color=token_color, border_color=PALETTE["panel_dark"], radius=8, shadow=False)
+                    token_text = tiny_font.render(label, True, PALETTE["text"])
+                    canvas.blit(token_text, (token_rect.centerx - token_text.get_width() // 2, token_rect.centery - token_text.get_height() // 2))
+                    token_x += 32
+
             if badge_rect is not None:
                 draw_button(
                     canvas,
-                    tiny_font if badge_height < 24 else small_font,
+                    tiny_font if badge_rect.height < 24 else small_font,
                     badge_rect,
                     "TURN",
                     PALETTE["gold"],
@@ -211,29 +304,59 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SE
         draw_panel(canvas, info_rect, fill_color=(233, 224, 209), border_color=PALETTE["panel_dark"], radius=22, shadow=False)
         render_text(canvas, font, "Thong tin", (info_rect.x + 18, info_rect.y + 16), PALETTE["text"])
         remaining_boxes = len(boxes) - len(opened)
-        stats_y = info_rect.y + 52
-        stats_gap = 24 if info_panel_height >= 150 else 20
+        stats_y = info_rect.y + 48
+        stats_gap = 23 if info_panel_height >= 170 else 19
         selected_name = players[current_player].name if current_player is not None else "Chua chon"
         render_text(canvas, small_font, f"Kieu luot: {TURN_MODE_LABELS[turn_mode]}", (info_rect.x + 18, stats_y), PALETTE["muted"])
         if turn_mode == MANUAL_TURN_MODE:
             render_text(canvas, small_font, f"Dang chon: {selected_name}", (info_rect.x + 18, stats_y + stats_gap), PALETTE["muted"])
         else:
             render_text(canvas, small_font, f"Dang den luot: {selected_name}", (info_rect.x + 18, stats_y + stats_gap), PALETTE["muted"])
-        render_text(canvas, small_font, f"Con lai: {remaining_boxes} | Da mo: {len(opened)}", (info_rect.x + 18, stats_y + stats_gap * 2), PALETTE["muted"])
+            render_text(
+                canvas,
+                small_font,
+                f"Chieu luot: {get_turn_direction_label(game_state['turn_direction'])}",
+                (info_rect.x + 18, stats_y + stats_gap * 2),
+                PALETTE["muted"],
+            )
+        status_owner = players[current_player] if current_player is not None else None
+        status_text = "Trang thai: Chua co"
+        if status_owner is not None:
+            parts = []
+            if status_owner.shields:
+                parts.append(f"La chan x{status_owner.shields}")
+            if status_owner.bonus_turns:
+                parts.append(f"Them luot x{status_owner.bonus_turns}")
+            if status_owner.skip_turns:
+                parts.append(f"Mat luot x{status_owner.skip_turns}")
+            if parts:
+                status_text = "Trang thai: " + " | ".join(parts)
+        status_line_y = stats_y + stats_gap * (3 if turn_mode == SEQUENTIAL_TURN_MODE else 2)
+        render_text(canvas, small_font, f"Con lai: {remaining_boxes} | Da mo: {len(opened)}", (info_rect.x + 18, status_line_y), PALETTE["muted"])
+        render_text(canvas, small_font, status_text, (info_rect.x + 18, status_line_y + stats_gap), PALETTE["muted"])
         if waiting_effect_input:
             helper_text = "Nhan 1 neu thang, 2 neu thua."
         elif turn_mode == MANUAL_TURN_MODE and current_player is None:
             helper_text = "Click vao nguoi choi ben trai truoc khi mo o."
         elif turn_mode == MANUAL_TURN_MODE:
-            helper_text = "Co the doi nguoi choi ben trai truoc khi mo o."
+            helper_text = "Ban o se mo cho nguoi dang duoc chon."
         else:
-            helper_text = "Chon o bat ky de mo."
-        render_text(canvas, small_font, helper_text, (info_rect.x + 18, info_rect.bottom - 30), PALETTE["muted"])
+            helper_text = "Chon o bat ky de kich hoat hieu ung."
+        render_text(canvas, small_font, helper_text, (info_rect.x + 18, info_rect.bottom - 28), PALETTE["muted"])
 
-        render_text(canvas, title_font, "Ban co", (board_rect.x + 26, board_rect.y + 18), PALETTE["text"])
-        render_text(canvas, small_font, "Click vao mot o de kich hoat hieu ung.", (board_rect.x + 28, board_rect.y + 58), PALETTE["muted"])
+        render_text(canvas, title_font, "Ban o", (board_rect.x + 26, board_rect.y + 18), PALETTE["text"])
+        render_text(canvas, small_font, "Mo o de kich hoat hieu ung va tranh bi dao diem ngoan muc.", (board_rect.x + 28, board_rect.y + 58), PALETTE["muted"])
 
-        grid_rect = pygame.Rect(board_rect.x + 24, board_rect.y + 92, board_rect.width - 48, board_rect.height - 170)
+        progress_track = pygame.Rect(board_rect.x + 28, board_rect.y + 84, board_rect.width - 256, 16)
+        progress_fill = pygame.Rect(progress_track.x, progress_track.y, int(progress_track.width * (len(opened) / max(1, len(boxes)))), progress_track.height)
+        pygame.draw.rect(canvas, (221, 212, 192), progress_track, border_radius=10)
+        if progress_fill.width > 0:
+            pygame.draw.rect(canvas, PALETTE["gold"], progress_fill, border_radius=10)
+        pygame.draw.rect(canvas, PALETTE["panel_dark"], progress_track, 1, border_radius=10)
+        progress_text = f"Tien do {len(opened)}/{len(boxes)}"
+        render_text(canvas, tiny_font, progress_text, (progress_track.right + 14, progress_track.y - 1), PALETTE["muted"])
+
+        grid_rect = pygame.Rect(board_rect.x + 24, board_rect.y + 114, board_rect.width - 48, board_rect.height - 192)
         draw_panel(canvas, grid_rect, fill_color=(232, 223, 207), border_color=PALETTE["panel_dark"], radius=24, shadow=False)
 
         cols = 10
@@ -245,36 +368,52 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SE
         start_x = grid_rect.x + max(18, (grid_rect.width - board_total_width) // 2)
         start_y = grid_rect.y + max(18, (grid_rect.height - board_total_height) // 2)
 
+        board_locked = turn_mode == MANUAL_TURN_MODE and current_player is None and not waiting_effect_input
         hovered_index = None
         for index, num in enumerate(boxes):
             x = start_x + (index % cols) * (box_size + gap)
             y = start_y + (index // cols) * (box_size + gap)
             rect = pygame.Rect(x, y, box_size, box_size)
-            if rect.collidepoint(canvas_mouse) and num not in opened and not waiting_effect_input:
+            if rect.collidepoint(canvas_mouse) and num not in opened and not waiting_effect_input and not board_locked:
                 hovered_index = index
 
         for index, num in enumerate(boxes):
             x = start_x + (index % cols) * (box_size + gap)
             y = start_y + (index // cols) * (box_size + gap)
             rect = pygame.Rect(x, y, box_size, box_size)
+            draw_rect = rect
 
             if num in opened:
-                fill_color = (202, 197, 206)
-                border_color = PALETTE["panel_dark"]
-                text_color = PALETTE["muted"]
-            else:
-                fill_color = (223, 231, 249)
-                border_color = PALETTE["azure_dark"]
+                box_meta = box_effects.get(num, {})
+                effect_id = box_meta.get("effect_id")
+                opened_at = box_meta.get("opened_at", 0)
+                accent_color, fill_color = get_effect_palette(effect_id)
+                age = tick - opened_at
+                pulse = max(0.0, 1.0 - age / 520)
+                if pulse > 0:
+                    draw_glow(canvas, rect.center, accent_color, int(42 + pulse * 22), int(18 + pulse * 16))
+                    inflate = int(10 * pulse)
+                    draw_rect = rect.inflate(inflate, inflate)
+                border_color = accent_color
                 text_color = PALETTE["text"]
+            else:
+                if board_locked:
+                    fill_color = (216, 211, 203)
+                    border_color = (152, 147, 160)
+                    text_color = PALETTE["muted"]
+                else:
+                    fill_color = (223, 231, 249)
+                    border_color = PALETTE["azure_dark"]
+                    text_color = PALETTE["text"]
 
             if hovered_index == index:
                 fill_color = (244, 230, 186)
                 border_color = PALETTE["gold_dark"]
                 draw_glow(canvas, rect.center, PALETTE["gold"], 52, 24)
 
-            draw_panel(canvas, rect, fill_color=fill_color, border_color=border_color, radius=18, shadow=False)
+            draw_panel(canvas, draw_rect, fill_color=fill_color, border_color=border_color, radius=18, shadow=False)
             num_text = font.render(str(num), True, text_color)
-            canvas.blit(num_text, (rect.centerx - num_text.get_width() // 2, rect.centery - num_text.get_height() // 2))
+            canvas.blit(num_text, (draw_rect.centerx - num_text.get_width() // 2, draw_rect.centery - num_text.get_height() // 2))
 
         quit_rect = pygame.Rect(board_rect.right - 192, board_rect.bottom - 62, 152, 38)
         draw_button(
@@ -287,11 +426,15 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SE
             quit_rect.collidepoint(canvas_mouse),
         )
 
-        if result_message:
-            accent_color, fill_color = get_banner_style(result_message)
+        if banner and banner.get("message"):
+            accent_color, fill_color = get_effect_palette(banner.get("effect_id"), banner.get("message", ""))
             banner_rect = pygame.Rect(board_rect.x + 26, board_rect.bottom - 64, board_rect.width - 236, 40)
+            age = tick - banner.get("created_at", tick)
+            pulse = max(0.0, 1.0 - min(age, 1800) / 1800)
+            if pulse > 0:
+                draw_glow(canvas, banner_rect.center, accent_color, 58, int(10 + pulse * 12))
             draw_panel(canvas, banner_rect, fill_color=fill_color, border_color=accent_color, radius=18, shadow=False)
-            text = small_font.render(result_message, True, PALETTE["text"])
+            text = small_font.render(truncate_text(small_font, banner["message"], banner_rect.width - 30), True, PALETTE["text"])
             canvas.blit(text, (banner_rect.x + 14, banner_rect.centery - text.get_height() // 2))
 
         scaled_canvas = pygame.transform.smoothscale(canvas, screen.get_size())
@@ -300,7 +443,8 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SE
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 pos = (int(event.pos[0] * scale_x), int(event.pos[1] * scale_y))
 
                 if quit_rect.collidepoint(pos):
@@ -312,45 +456,99 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SE
                     selected_player = False
                     for index, card_rect in player_hitboxes:
                         if card_rect.collidepoint(pos):
-                            current_player = index
+                            skip_message = consume_pending_skip(players[index])
+                            if skip_message:
+                                current_player = None if current_player == index else current_player
+                                banner = set_banner(skip_message, "reverse")
+                            else:
+                                current_player = index
                             selected_player = True
                             break
                     if selected_player:
                         continue
 
-                if not waiting_effect_input:
-                    if turn_mode == MANUAL_TURN_MODE and current_player is None:
-                        result_message = "Hay chon nguoi choi truoc khi mo o."
-                        continue
-                    for index, num in enumerate(boxes):
-                        x = start_x + (index % cols) * (box_size + gap)
-                        y = start_y + (index // cols) * (box_size + gap)
-                        rect = pygame.Rect(x, y, box_size, box_size)
-                        if rect.collidepoint(pos) and num not in opened:
-                            opened.append(num)
-                            effect_id = get_random_effect(dist_mode, custom_weights)
-                            if effect_id == 6:
-                                play_effect(6)
-                                result_message = f"{players[current_player].name} mo o {num} - Keo bua bao! Nhan 1 de thang, 2 de thua."
-                                effect_to_resolve = {"player": players[current_player]}
-                                waiting_effect_input = True
-                            else:
-                                result_message = (
-                                    f"{players[current_player].name} mo o {num} - "
-                                    f"{apply_effect(effect_id, players[current_player], players)}"
-                                )
-                                current_player = get_next_player_index(current_player, len(players), turn_mode)
-                            break
+                if waiting_effect_input:
+                    continue
+
+                if turn_mode == MANUAL_TURN_MODE and current_player is None:
+                    banner = set_banner("Hay chon nguoi choi truoc khi mo o.", "shield")
+                    continue
+
+                active_player = players[current_player]
+                if active_player.skip_turns > 0:
+                    banner = set_banner(consume_pending_skip(active_player), "reverse")
+                    if turn_mode == SEQUENTIAL_TURN_MODE:
+                        current_player, skipped_names = resolve_next_player(
+                            current_player,
+                            players,
+                            turn_mode,
+                            game_state["turn_direction"],
+                        )
+                        if skipped_names:
+                            banner = set_banner(append_skip_notice(banner["message"], skipped_names), "reverse")
+                    continue
+
+                for index, num in enumerate(boxes):
+                    x = start_x + (index % cols) * (box_size + gap)
+                    y = start_y + (index // cols) * (box_size + gap)
+                    rect = pygame.Rect(x, y, box_size, box_size)
+                    if rect.collidepoint(pos) and num not in opened:
+                        opened.add(num)
+                        active_player.record_turn()
+                        active_player.record_box_opened()
+                        effect_id = get_random_effect(dist_mode, custom_weights)
+                        box_effects[num] = {"effect_id": effect_id, "opened_at": tick}
+
+                        if effect_id == "rps":
+                            play_effect("rps")
+                            banner = set_banner(
+                                f"{active_player.name} mo o {num} - Keo bua bao! Nhan 1 de thang, 2 de thua.",
+                                "rps",
+                            )
+                            effect_to_resolve = {"player_index": current_player}
+                            waiting_effect_input = True
+                        else:
+                            message = apply_effect(effect_id, active_player, players, game_state)
+                            current_player, skipped_names = resolve_next_player(
+                                current_player,
+                                players,
+                                turn_mode,
+                                game_state["turn_direction"],
+                            )
+                            banner = set_banner(
+                                append_skip_notice(f"{active_player.name} mo o {num} - {message}", skipped_names),
+                                effect_id,
+                            )
+                        break
+
             elif event.type == pygame.KEYDOWN and waiting_effect_input:
+                player_index = effect_to_resolve["player_index"]
+                effect_player = players[player_index]
                 if event.key == pygame.K_1:
-                    effect_to_resolve["player"].add_score(10)
-                    result_message = f"{effect_to_resolve['player'].name} thang Keo bua bao! +10 diem."
-                    current_player = get_next_player_index(current_player, len(players), turn_mode)
+                    effect_player.add_score(10)
+                    current_player, skipped_names = resolve_next_player(
+                        player_index,
+                        players,
+                        turn_mode,
+                        game_state["turn_direction"],
+                    )
+                    banner = set_banner(
+                        append_skip_notice(f"{effect_player.name} thang Keo bua bao! +10 diem.", skipped_names),
+                        "rps",
+                    )
                     waiting_effect_input = False
                     effect_to_resolve = None
                 elif event.key == pygame.K_2:
-                    result_message = f"{effect_to_resolve['player'].name} thua Keo bua bao."
-                    current_player = get_next_player_index(current_player, len(players), turn_mode)
+                    current_player, skipped_names = resolve_next_player(
+                        player_index,
+                        players,
+                        turn_mode,
+                        game_state["turn_direction"],
+                    )
+                    banner = set_banner(
+                        append_skip_notice(f"{effect_player.name} thua Keo bua bao.", skipped_names),
+                        "rps",
+                    )
                     waiting_effect_input = False
                     effect_to_resolve = None
 
@@ -364,20 +562,40 @@ def show_final_result(screen, title_font, font, players):
     small_font = pygame.font.Font(font_path, 16)
     tiny_font = pygame.font.Font(font_path, 14)
     waiting = True
+    animation_start = pygame.time.get_ticks()
 
     while waiting:
         tick = pygame.time.get_ticks()
+        reveal_progress = min(1.0, (tick - animation_start) / 900)
         draw_background(screen, tick)
 
-        panel_rect = pygame.Rect(120, 80, screen.get_width() - 240, screen.get_height() - 160)
+        panel_rect = pygame.Rect(100, 70, screen.get_width() - 200, screen.get_height() - 140)
         draw_panel(screen, panel_rect, fill_color=(248, 241, 225), border_color=PALETTE["gold_dark"], radius=30)
-        render_text(screen, title_font, "Ket qua cuoi cung", (panel_rect.x + 40, panel_rect.y + 28), PALETTE["text"])
+        render_text(screen, title_font, "Ket qua cuoi cung", (panel_rect.x + 36, panel_rect.y + 24), PALETTE["text"])
 
         winner = players[0]
         winner_text = f"Nguoi thang: {winner.name} - {winner.score} diem"
-        render_text(screen, small_font, winner_text, (panel_rect.x + 42, panel_rect.y + 72), PALETTE["muted"])
+        render_text(screen, small_font, winner_text, (panel_rect.x + 38, panel_rect.y + 70), PALETTE["muted"])
 
-        chart_rect = pygame.Rect(panel_rect.x + 42, panel_rect.y + 122, panel_rect.width - 84, panel_rect.height - 220)
+        stat_cards = get_stat_cards(players)
+        stat_top = panel_rect.y + 110
+        stat_gap = 18
+        stat_width = (panel_rect.width - 76 - stat_gap * 3) // 4
+        for index, (title, name, detail) in enumerate(stat_cards):
+            card_rect = pygame.Rect(panel_rect.x + 38 + index * (stat_width + stat_gap), stat_top, stat_width, 88)
+            accent = [PALETTE["gold"], PALETTE["azure"], PALETTE["mint"], PALETTE["crimson"]][index % 4]
+            fill = {
+                PALETTE["gold"]: (247, 239, 212),
+                PALETTE["azure"]: (220, 230, 245),
+                PALETTE["mint"]: (221, 236, 228),
+                PALETTE["crimson"]: (243, 223, 226),
+            }[accent]
+            draw_panel(screen, card_rect, fill_color=fill, border_color=accent, radius=20, shadow=False)
+            render_text(screen, tiny_font, title, (card_rect.x + 14, card_rect.y + 12), PALETTE["muted"])
+            render_text(screen, small_font, truncate_text(small_font, name, card_rect.width - 28), (card_rect.x + 14, card_rect.y + 34), PALETTE["text"])
+            render_text(screen, tiny_font, detail, (card_rect.x + 14, card_rect.y + 60), PALETTE["text"])
+
+        chart_rect = pygame.Rect(panel_rect.x + 38, stat_top + 110, panel_rect.width - 76, panel_rect.height - 250)
         draw_panel(screen, chart_rect, fill_color=(240, 232, 214), border_color=PALETTE["panel_dark"], radius=24, shadow=False)
 
         label_width = min(220, max(140, chart_rect.width // 4))
@@ -385,7 +603,9 @@ def show_final_result(screen, title_font, font, players):
         bar_left = chart_rect.x + label_width + 28
         bar_right = chart_rect.right - score_width - 20
         bar_width = max(140, bar_right - bar_left)
-        max_score = max(1, max(player.score for player in players))
+        min_score = min(player.score for player in players)
+        score_offset = -min(0, min_score)
+        max_score = max(1, max(player.score + score_offset for player in players))
         row_gap = 12 if len(players) <= 8 else 8 if len(players) <= 12 else 4
         row_height = max(18, min(54, (chart_rect.height - 34 - row_gap * max(0, len(players) - 1)) // max(1, len(players))))
         colors = [PALETTE["gold"], PALETTE["azure"], PALETTE["mint"]]
@@ -394,7 +614,9 @@ def show_final_result(screen, title_font, font, players):
             row_y = chart_rect.y + 18 + index * (row_height + row_gap)
             row_rect = pygame.Rect(chart_rect.x + 16, row_y, chart_rect.width - 32, row_height)
             track_rect = pygame.Rect(bar_left, row_y + max(4, row_height // 5), bar_width, max(10, row_height - 10))
-            fill_width = max(14, int(track_rect.width * (player.score / max_score))) if player.score > 0 else 0
+            normalized_score = player.score + score_offset
+            raw_width = max(14, int(track_rect.width * (normalized_score / max_score))) if normalized_score > 0 else 0
+            fill_width = int(raw_width * reveal_progress)
             fill_rect = pygame.Rect(track_rect.x, track_rect.y, fill_width, track_rect.height)
             bar_color = colors[index] if index < 3 else (190, 174, 145)
 
@@ -420,8 +642,17 @@ def show_final_result(screen, title_font, font, players):
             score_y = row_rect.y + (row_height - score_surface.get_height()) // 2
             screen.blit(score_surface, (score_x, score_y))
 
-        ok_rect = pygame.Rect(screen.get_width() // 2 - 90, panel_rect.bottom - 74, 180, 46)
-        draw_button(screen, font, ok_rect, "OK - Thoat", PALETTE["mint"], PALETTE["mint_dark"], ok_rect.collidepoint(pygame.mouse.get_pos()), PALETTE["text"])
+        ok_rect = pygame.Rect(screen.get_width() // 2 - 90, panel_rect.bottom - 70, 180, 46)
+        draw_button(
+            screen,
+            font,
+            ok_rect,
+            "OK - Thoat",
+            PALETTE["mint"],
+            PALETTE["mint_dark"],
+            ok_rect.collidepoint(pygame.mouse.get_pos()),
+            PALETTE["text"],
+        )
 
         pygame.display.flip()
 

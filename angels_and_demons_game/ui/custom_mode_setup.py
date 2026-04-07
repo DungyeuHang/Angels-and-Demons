@@ -3,9 +3,12 @@ import sys
 
 import pygame
 
-from mechanics.randomizer import DEFAULT_WEIGHTS
-from mechanics.randomizer import EFFECT_LABELS
+from mechanics.effects import get_all_effects
+from mechanics.randomizer import build_default_weight_map
 from mechanics.randomizer import sanitize_weights
+from models.custom_effects import CUSTOM_EFFECT_OPERATION_LABELS
+from models.custom_effects import CUSTOM_EFFECT_OPERATION_OPTIONS
+from models.custom_effects import save_custom_effect
 from models.custom_modes import delete_custom_mode
 from models.custom_modes import load_custom_modes
 from models.custom_modes import save_custom_mode
@@ -88,7 +91,7 @@ def make_state(mode=None):
             "player_names": resize_names([], 2),
             "num_boxes_text": "50",
             "turn_mode": SEQUENTIAL_TURN_MODE,
-            "weights": DEFAULT_WEIGHTS.copy(),
+            "weights": build_default_weight_map(include_custom=True),
         }
 
     names = [str(name) for name in mode.get("player_names", []) if str(name).strip()]
@@ -101,12 +104,39 @@ def make_state(mode=None):
         "player_names": names,
         "num_boxes_text": str(mode.get("num_boxes", 50)),
         "turn_mode": normalize_turn_mode(mode.get("turn_mode")),
-        "weights": sanitize_weights(mode.get("weights", DEFAULT_WEIGHTS)),
+        "weights": sanitize_weights(mode.get("weights"), include_custom=True),
+    }
+
+
+def make_effect_editor():
+    return {
+        "name": "",
+        "value_text": "10",
+        "operation": CUSTOM_EFFECT_OPERATION_OPTIONS[0]["id"],
+        "field": "name",
+        "value_pristine": True,
     }
 
 
 def valid_number(text):
     return text.isdigit() and int(text) > 0
+
+
+def valid_positive_number(text):
+    try:
+        return float(text) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def append_numeric_fragment(text, fragment, allow_decimal=False):
+    updated = str(text)
+    for char in fragment:
+        if char.isdigit():
+            updated += char
+        elif allow_decimal and char == "." and "." not in updated:
+            updated = f"{updated}0." if not updated else f"{updated}."
+    return updated
 
 
 def name_exists(mode_name, original_name):
@@ -123,7 +153,7 @@ def build_mode_data(state):
         "player_names": [name.strip() for name in state["player_names"]],
         "num_boxes": int(state["num_boxes_text"]),
         "turn_mode": normalize_turn_mode(state.get("turn_mode")),
-        "weights": sanitize_weights(state["weights"]),
+        "weights": sanitize_weights(state["weights"], include_custom=True),
     }
 
 
@@ -133,7 +163,7 @@ def focus_player_field(state, index):
     return index
 
 
-def handle_backspace(state, phase, editing):
+def handle_backspace(state, phase, editing, effect_editor):
     if phase == "name":
         state["mode_name"] = state["mode_name"][:-1]
     elif phase == "players":
@@ -142,6 +172,29 @@ def handle_backspace(state, phase, editing):
         state["player_names"][editing] = state["player_names"][editing][:-1]
     elif phase == "boxes":
         state["num_boxes_text"] = state["num_boxes_text"][:-1]
+    elif phase == "effect_editor":
+        if effect_editor["field"] == "name":
+            effect_editor["name"] = effect_editor["name"][:-1]
+        else:
+            effect_editor["value_text"] = effect_editor["value_text"][:-1]
+            effect_editor["value_pristine"] = False
+
+
+def focus_effect_editor_field(effect_editor, field_name):
+    effect_editor["field"] = field_name
+    if field_name == "value" and effect_editor.get("value_pristine", False):
+        effect_editor["value_text"] = ""
+        effect_editor["value_pristine"] = False
+    return effect_editor
+
+
+def build_effect_description(effect):
+    if effect.get("is_custom"):
+        operation_label = CUSTOM_EFFECT_OPERATION_LABELS.get(effect.get("operation"), effect.get("operation", "custom"))
+        value = float(effect.get("value", 0))
+        value_text = str(int(value)) if value.is_integer() else f"{value:.1f}"
+        return f"{operation_label} | gia tri {value_text}"
+    return "Hieu ung co san"
 
 
 def run_custom_mode_ui():
@@ -155,13 +208,14 @@ def run_custom_mode_ui():
 
     phase = "list"
     state = make_state()
+    effect_editor = make_effect_editor()
     editing = 0
     scroll_y = 0
     error = ""
     last_tab_time = 0
     backspace_held = False
-    backspace_repeat_delay = 350
-    backspace_repeat_interval = 40
+    backspace_repeat_delay = 170
+    backspace_repeat_interval = 24
     next_backspace_time = 0
 
     while True:
@@ -187,9 +241,9 @@ def run_custom_mode_ui():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     mouse_clicked = True
-                elif phase == "list" and event.button == 4:
+                elif phase in {"list", "weights"} and event.button == 4:
                     scroll_y = max(0, scroll_y - 40)
-                elif phase == "list" and event.button == 5:
+                elif phase in {"list", "weights"} and event.button == 5:
                     scroll_y += 40
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
@@ -203,7 +257,10 @@ def run_custom_mode_ui():
                         "names": "players",
                         "players": "name",
                         "name": "list",
+                        "effect_editor": "weights",
                     }[phase]
+                    if phase == "weights":
+                        state["weights"] = sanitize_weights(state["weights"], include_custom=True)
                     refresh_text_input()
                     error = ""
                 elif phase == "name":
@@ -211,7 +268,7 @@ def run_custom_mode_ui():
                         phase = "players"
                         refresh_text_input()
                     elif event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
-                        handle_backspace(state, phase, editing)
+                        handle_backspace(state, phase, editing, effect_editor)
                         backspace_held = True
                         next_backspace_time = current_time + backspace_repeat_delay
                 elif phase == "players":
@@ -221,7 +278,7 @@ def run_custom_mode_ui():
                         phase = "names"
                         refresh_text_input()
                     elif event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
-                        handle_backspace(state, phase, editing)
+                        handle_backspace(state, phase, editing, effect_editor)
                         backspace_held = True
                         next_backspace_time = current_time + backspace_repeat_delay
                 elif phase == "names":
@@ -235,7 +292,7 @@ def run_custom_mode_ui():
                         phase = "boxes"
                         refresh_text_input()
                     elif event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
-                        handle_backspace(state, phase, editing)
+                        handle_backspace(state, phase, editing, effect_editor)
                         backspace_held = True
                         next_backspace_time = current_time + backspace_repeat_delay
                 elif phase == "boxes":
@@ -243,7 +300,7 @@ def run_custom_mode_ui():
                         phase = "turn_mode"
                         refresh_text_input()
                     elif event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
-                        handle_backspace(state, phase, editing)
+                        handle_backspace(state, phase, editing, effect_editor)
                         backspace_held = True
                         next_backspace_time = current_time + backspace_repeat_delay
                 elif phase == "turn_mode":
@@ -253,27 +310,63 @@ def run_custom_mode_ui():
                         state["turn_mode"] = MANUAL_TURN_MODE
                     elif event.key == pygame.K_RETURN:
                         phase = "weights"
+                        scroll_y = 0
                 elif phase == "weights" and event.key == pygame.K_RETURN:
-                    if any(weight > 0 for weight in state["weights"]):
+                    if any(weight > 0 for weight in state["weights"].values()):
                         phase = "save"
                     else:
                         error = "Phai co it nhat mot ti le > 0."
+                elif phase == "effect_editor":
+                    if event.key == pygame.K_TAB:
+                        next_field = "value" if effect_editor["field"] == "name" else "name"
+                        focus_effect_editor_field(effect_editor, next_field)
+                        refresh_text_input()
+                    elif event.key == pygame.K_RETURN:
+                        if effect_editor["name"].strip() and valid_positive_number(effect_editor["value_text"]):
+                            saved_effect = save_custom_effect(
+                                {
+                                    "name": effect_editor["name"].strip(),
+                                    "operation": effect_editor["operation"],
+                                    "value": float(effect_editor["value_text"]),
+                                }
+                            )
+                            state["weights"][str(saved_effect["id"])] = 1.0
+                            state["weights"] = sanitize_weights(state["weights"], include_custom=True)
+                            phase = "weights"
+                            effect_editor = make_effect_editor()
+                            error = ""
+                        else:
+                            error = "Nhap ten va gia tri hop le cho effect moi."
+                    elif event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
+                        handle_backspace(state, phase, editing, effect_editor)
+                        backspace_held = True
+                        next_backspace_time = current_time + backspace_repeat_delay
             elif event.type == pygame.TEXTINPUT:
                 if phase == "name":
                     state["mode_name"] += event.text
                 elif phase == "players":
-                    if event.text.isdigit():
-                        state["num_players_text"] += event.text
+                    state["num_players_text"] = append_numeric_fragment(state["num_players_text"], event.text)
                 elif phase == "names" and state["player_names"]:
                     state["player_names"][editing] += event.text
                 elif phase == "boxes":
-                    if event.text.isdigit():
-                        state["num_boxes_text"] += event.text
+                    state["num_boxes_text"] = append_numeric_fragment(state["num_boxes_text"], event.text)
+                elif phase == "effect_editor":
+                    if effect_editor["field"] == "name":
+                        effect_editor["name"] += event.text
+                    else:
+                        if effect_editor.get("value_pristine", False):
+                            effect_editor["value_text"] = ""
+                            effect_editor["value_pristine"] = False
+                        effect_editor["value_text"] = append_numeric_fragment(
+                            effect_editor["value_text"],
+                            event.text,
+                            allow_decimal=True,
+                        )
             elif event.type == pygame.KEYUP and event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
                 backspace_held = False
 
         if backspace_held and current_time >= next_backspace_time:
-            handle_backspace(state, phase, editing)
+            handle_backspace(state, phase, editing, effect_editor)
             next_backspace_time = current_time + backspace_repeat_interval
 
         if phase == "list":
@@ -317,6 +410,7 @@ def run_custom_mode_ui():
             if mouse_clicked:
                 if new_rect.collidepoint(mouse_pos):
                     state, editing, error, phase = make_state(), 0, "", "name"
+                    scroll_y = 0
                     refresh_text_input()
                 elif back_rect.collidepoint(mouse_pos):
                     return None, None, None, None, None
@@ -330,12 +424,13 @@ def run_custom_mode_ui():
                                     make_players(names),
                                     num_boxes,
                                     "custom",
-                                    sanitize_weights(preset.get("weights", DEFAULT_WEIGHTS)),
+                                    sanitize_weights(preset.get("weights"), include_custom=True),
                                     normalize_turn_mode(preset.get("turn_mode")),
                                 )
                     for preset, rect in edit_buttons:
                         if rect.collidepoint(mouse_pos):
                             state, editing, error, phase = make_state(preset), 0, "", "name"
+                            scroll_y = 0
                             refresh_text_input()
                     for preset, rect in delete_buttons:
                         if rect.collidepoint(mouse_pos):
@@ -468,48 +563,147 @@ def run_custom_mode_ui():
                     phase, error = "boxes", ""
 
         elif phase == "weights":
+            effects = get_all_effects(include_custom=True)
+            state["weights"] = sanitize_weights(state["weights"], include_custom=True)
             screen.blit(font.render("Chinh ti le hieu ung", True, (0, 0, 0)), (60, 24))
-            total = sum(state["weights"])
+            screen.blit(small_font.render("Them effect moi va chinh xac suat ngay tai day.", True, (90, 90, 90)), (60, 58))
+            add_effect_rect = pygame.Rect(60, 90, 200, 42)
+            reset_rect = pygame.Rect(280, 90, 160, 42)
+            draw_button(screen, font, add_effect_rect, "Them effect", (120, 180, 230))
+            draw_button(screen, font, reset_rect, "Mac dinh", (230, 230, 180))
+
+            row_top = 150
+            row_height = 58
+            row_gap = 12
+            visible_bottom = screen.get_height() - 130
             buttons = []
-            for index, label in enumerate(EFFECT_LABELS):
-                y = 100 + index * 62
-                row = pygame.Rect(60, y, screen.get_width() - 120, 50)
+            total = sum(state["weights"].get(str(effect["id"]), 0.0) for effect in effects)
+            for index, effect in enumerate(effects):
+                y = row_top + index * (row_height + row_gap) - scroll_y
+                if y + row_height < row_top or y > visible_bottom:
+                    continue
+
+                row = pygame.Rect(60, y, screen.get_width() - 120, row_height)
                 pygame.draw.rect(screen, (255, 255, 255), row, border_radius=10)
                 pygame.draw.rect(screen, (0, 0, 0), row, 2, border_radius=10)
-                percent = 0 if total <= 0 else state["weights"][index] / total * 100
-                screen.blit(font.render(f"{label} - {percent:.1f}%", True, (0, 0, 0)), (row.x + 18, row.y + 10))
-                minus_rect = pygame.Rect(row.right - 200, row.y + 9, 40, 32)
-                plus_rect = pygame.Rect(row.right - 50, row.y + 9, 40, 32)
+                effect_id = str(effect["id"])
+                weight = state["weights"].get(effect_id, 0.0)
+                percent = 0 if total <= 0 else weight / total * 100
+                label = str(effect.get("label", effect_id))
+                detail = build_effect_description(effect)
+                screen.blit(font.render(f"{label} - {percent:.1f}%", True, (0, 0, 0)), (row.x + 18, row.y + 8))
+                screen.blit(small_font.render(detail, True, (90, 90, 90)), (row.x + 18, row.y + 32))
+                minus_rect = pygame.Rect(row.right - 200, row.y + 13, 40, 32)
+                plus_rect = pygame.Rect(row.right - 50, row.y + 13, 40, 32)
                 draw_button(screen, font, minus_rect, "-", (230, 230, 230))
-                draw_box(screen, font, pygame.Rect(row.right - 150, row.y + 9, 90, 32), f"{state['weights'][index]:.1f}")
+                draw_box(screen, font, pygame.Rect(row.right - 150, row.y + 13, 90, 32), f"{weight:.1f}")
                 draw_button(screen, font, plus_rect, "+", (230, 230, 230))
-                buttons.append((index, minus_rect, plus_rect))
-            reset_rect = pygame.Rect(60, 620, 170, 50)
+                buttons.append((effect_id, minus_rect, plus_rect))
+
+            max_scroll = max(0, len(effects) * (row_height + row_gap) - (visible_bottom - row_top))
+            scroll_y = max(0, min(scroll_y, max_scroll))
+
             back_rect = pygame.Rect(560, 620, 170, 50)
             next_rect = pygame.Rect(760, 620, 170, 50)
-            draw_button(screen, font, reset_rect, "Mac dinh", (230, 230, 180))
             draw_button(screen, font, back_rect, "Tro lai", (220, 120, 120))
             draw_button(screen, font, next_rect, "Bat dau", (100, 200, 100))
             if mouse_clicked:
                 handled = False
-                for index, minus_rect, plus_rect in buttons:
+                for effect_id, minus_rect, plus_rect in buttons:
                     if minus_rect.collidepoint(mouse_pos):
-                        state["weights"][index] = max(0.0, state["weights"][index] - 0.5)
+                        state["weights"][effect_id] = max(0.0, state["weights"].get(effect_id, 0.0) - 0.5)
                         handled = True
                     elif plus_rect.collidepoint(mouse_pos):
-                        state["weights"][index] += 0.5
+                        state["weights"][effect_id] = state["weights"].get(effect_id, 0.0) + 0.5
                         handled = True
                     if handled:
                         break
-                if not handled and reset_rect.collidepoint(mouse_pos):
-                    state["weights"] = DEFAULT_WEIGHTS.copy()
+                if not handled and add_effect_rect.collidepoint(mouse_pos):
+                    effect_editor = make_effect_editor()
+                    phase = "effect_editor"
+                    refresh_text_input()
+                elif not handled and reset_rect.collidepoint(mouse_pos):
+                    state["weights"] = build_default_weight_map(include_custom=True)
                 elif not handled and back_rect.collidepoint(mouse_pos):
                     phase, error = "turn_mode", ""
                     refresh_text_input()
                 elif not handled and next_rect.collidepoint(mouse_pos):
-                    error = "" if any(weight > 0 for weight in state["weights"]) else "Phai co it nhat mot ti le > 0."
+                    error = "" if any(weight > 0 for weight in state["weights"].values()) else "Phai co it nhat mot ti le > 0."
                     if not error:
                         phase = "save"
+
+        elif phase == "effect_editor":
+            screen.blit(font.render("Them effect moi", True, (0, 0, 0)), (60, 40))
+            screen.blit(small_font.render("Dat ten, chon loai tac dong va gia tri. Co them ca effect chien thuat.", True, (90, 90, 90)), (60, 72))
+            name_rect = pygame.Rect(60, 130, 420, 46)
+            value_rect = pygame.Rect(60, 210, 180, 46)
+            draw_box(screen, font, name_rect, effect_editor["name"], effect_editor["field"] == "name", caret_visible and effect_editor["field"] == "name")
+            draw_box(screen, font, value_rect, effect_editor["value_text"], effect_editor["field"] == "value", caret_visible and effect_editor["field"] == "value")
+            screen.blit(small_font.render("Ten effect", True, (90, 90, 90)), (60, 108))
+            screen.blit(small_font.render("Gia tri / so lan", True, (90, 90, 90)), (60, 188))
+
+            option_rects = []
+            option_columns = 3
+            option_width = 320
+            option_gap_x = 20
+            option_gap_y = 52
+            option_start_y = 300
+            for index, option in enumerate(CUSTOM_EFFECT_OPERATION_OPTIONS):
+                x = 60 + (index % option_columns) * (option_width + option_gap_x)
+                y = option_start_y + (index // option_columns) * option_gap_y
+                rect = pygame.Rect(x, y, option_width, 42)
+                active = effect_editor["operation"] == option["id"]
+                fill_color = (244, 230, 186) if active else (234, 226, 210)
+                border_color = PALETTE["gold_dark"] if active else PALETTE["panel_dark"]
+                draw_button(screen, small_font, rect, option["label"], fill_color, (0, 0, 0), border_color)
+                option_rects.append((option["id"], rect))
+
+            option_rows = max(1, (len(CUSTOM_EFFECT_OPERATION_OPTIONS) + option_columns - 1) // option_columns)
+            preview_y = option_start_y + option_rows * option_gap_y + 14
+            preview_rect = pygame.Rect(60, preview_y, screen.get_width() - 120, 42)
+            pygame.draw.rect(screen, (255, 255, 255), preview_rect, border_radius=10)
+            pygame.draw.rect(screen, PALETTE["panel_dark"], preview_rect, 2, border_radius=10)
+            preview_text = f"Preview: {effect_editor['name'].strip() or 'Effect moi'} | {CUSTOM_EFFECT_OPERATION_LABELS[effect_editor['operation']]} | {effect_editor['value_text'] or '0'}"
+            screen.blit(small_font.render(preview_text, True, (80, 80, 80)), (preview_rect.x + 14, preview_rect.y + 11))
+
+            save_y = min(screen.get_height() - 80, preview_rect.bottom + 24)
+            save_rect = pygame.Rect(760, save_y, 170, 50)
+            back_rect = pygame.Rect(560, save_y, 170, 50)
+            draw_button(screen, font, save_rect, "Luu effect", (100, 200, 100))
+            draw_button(screen, font, back_rect, "Tro lai", (220, 120, 120))
+            if mouse_clicked:
+                if name_rect.collidepoint(mouse_pos):
+                    focus_effect_editor_field(effect_editor, "name")
+                    refresh_text_input()
+                elif value_rect.collidepoint(mouse_pos):
+                    focus_effect_editor_field(effect_editor, "value")
+                    refresh_text_input()
+                elif back_rect.collidepoint(mouse_pos):
+                    phase = "weights"
+                    effect_editor = make_effect_editor()
+                    refresh_text_input()
+                elif save_rect.collidepoint(mouse_pos):
+                    if effect_editor["name"].strip() and valid_positive_number(effect_editor["value_text"]):
+                        saved_effect = save_custom_effect(
+                            {
+                                "name": effect_editor["name"].strip(),
+                                "operation": effect_editor["operation"],
+                                "value": float(effect_editor["value_text"]),
+                            }
+                        )
+                        state["weights"][str(saved_effect["id"])] = 1.0
+                        state["weights"] = sanitize_weights(state["weights"], include_custom=True)
+                        phase = "weights"
+                        effect_editor = make_effect_editor()
+                        refresh_text_input()
+                        error = ""
+                    else:
+                        error = "Nhap ten va gia tri hop le cho effect moi."
+                else:
+                    for operation_id, rect in option_rects:
+                        if rect.collidepoint(mouse_pos):
+                            effect_editor["operation"] = operation_id
+                            break
 
         elif phase == "save":
             screen.blit(font.render("Luu che do nay?", True, (0, 0, 0)), (60, 60))
@@ -548,4 +742,4 @@ def run_custom_mode_ui():
             screen.blit(font.render(error, True, (200, 30, 30)), (60, screen.get_height() - 40))
 
         pygame.display.flip()
-        clock.tick(30)
+        clock.tick(60)

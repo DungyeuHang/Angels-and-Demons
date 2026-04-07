@@ -94,8 +94,8 @@ def run_custom_setup_ui():
     players = []
     last_tab_time = 0
     backspace_held = False
-    backspace_repeat_delay = 350
-    backspace_repeat_interval = 40
+    backspace_repeat_delay = 170
+    backspace_repeat_interval = 24
     next_backspace_time = 0
 
     while True:
@@ -313,7 +313,7 @@ def run_custom_setup_ui():
             screen.blit(font.render(error, True, (255, 0, 0)), (50, 650))
 
         pygame.display.flip()
-        clock.tick(30)
+        clock.tick(60)
 
 
 def run_default_setup_ui():
