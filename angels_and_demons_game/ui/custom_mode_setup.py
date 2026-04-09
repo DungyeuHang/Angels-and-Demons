@@ -52,7 +52,7 @@ def get_font(size=20, ui=False, bold=False):
 
 
 def placeholder_name(index):
-    return f"Nguoi {index + 1}"
+    return f"Người {index + 1}"
 
 
 def refresh_text_input():
@@ -106,27 +106,27 @@ def draw_preset_tag(screen, font, rect, label, fill_color, border_color, text_co
 
 
 CUSTOM_MODE_PHASE_BADGES = {
-    "list": ("Preset list", "Danh sach"),
-    "name": ("Buoc 1/7", "Ten mode"),
-    "players": ("Buoc 2/7", "So slot"),
-    "names": ("Buoc 3/7", "Nguoi choi"),
-    "boxes": ("Buoc 4/7", "So o"),
-    "turn_mode": ("Buoc 5/7", "Luat & AI"),
-    "weights": ("Buoc 6/7", "Ti le effect"),
-    "effect_editor": ("Buoc 6/7", "Them effect"),
-    "save": ("Buoc 7/7", "Luu & choi"),
+    "list": ("Preset list", "Danh sách"),
+    "name": ("Bước 1/7", "Tên mode"),
+    "players": ("Bước 2/7", "Số slot"),
+    "names": ("Bước 3/7", "Người chơi"),
+    "boxes": ("Bước 4/7", "Số ô"),
+    "turn_mode": ("Bước 5/7", "Luật & AI"),
+    "weights": ("Bước 6/7", "Tỉ lệ effect"),
+    "effect_editor": ("Bước 6/7", "Thêm effect"),
+    "save": ("Bước 7/7", "Lưu & chơi"),
 }
 
 
 WEIGHT_FILTER_OPTIONS = [
-    ("all", "Tat ca"),
-    ("builtin", "Mac dinh"),
+    ("all", "Tất cả"),
+    ("builtin", "Mặc định"),
     ("custom", "Custom"),
 ]
 
 
 def draw_phase_badges(screen, font, tiny_font, phase):
-    progress_label, phase_label = CUSTOM_MODE_PHASE_BADGES.get(phase, ("Che do", "Custom"))
+    progress_label, phase_label = CUSTOM_MODE_PHASE_BADGES.get(phase, ("Chế độ", "Custom"))
     phase_width = max(104, tiny_font.size(phase_label)[0] + 22)
     progress_width = max(108, tiny_font.size(progress_label)[0] + 22)
     phase_rect = pygame.Rect(screen.get_width() - 176 - phase_width, 34, phase_width, 28)
@@ -295,10 +295,10 @@ def name_exists(mode_name, original_name):
 
 
 CUSTOM_MODE_FILTER_OPTIONS = [
-    ("all", "Tat ca"),
-    ("human", "Toan nguoi"),
-    ("bot", "Co bot"),
-    ("challenge", "Challenge"),
+    ("all", "Tất cả"),
+    ("human", "Toàn người"),
+    ("bot", "Có bot"),
+    ("challenge", "Thử thách"),
     ("series", "Best of 3"),
 ]
 
@@ -444,7 +444,7 @@ def draw_custom_mode_snapshot_card(surface, rect, snapshot, title_font, body_fon
     )
     surface.blit(title_font.render(title_copy, True, PALETTE["text"]), (rect.x + 82, rect.y + 8))
     surface.blit(body_font.render(detail_copy, True, PALETTE["muted"]), (rect.x + 82, rect.y + 25))
-    footer_copy = clamp_text(tiny_font, "Preview nhanh cho custom mode hien tai.", rect.width - 94)
+    footer_copy = clamp_text(tiny_font, "Preview nhanh cho custom mode hiện tại.", rect.width - 94)
     surface.blit(tiny_font.render(footer_copy, True, PALETTE["muted"]), (rect.x + 82, rect.bottom - 15))
 
 
@@ -509,25 +509,25 @@ def focus_effect_editor_field(effect_editor, field_name):
 
 def build_effect_description(effect):
     if effect.get("custom_only"):
-        return "Hieu ung dac biet | chi co trong custom"
+        return "Hiệu ứng đặc biệt | chỉ có trong custom"
     if effect.get("is_custom"):
         operation_label = CUSTOM_EFFECT_OPERATION_LABELS.get(effect.get("operation"), effect.get("operation", "custom"))
         value = float(effect.get("value", 0))
         value_text = str(int(value)) if value.is_integer() else f"{value:.1f}"
         return f"{operation_label} | gia tri {value_text}"
-    return "Hieu ung co san"
+    return "Hiệu ứng có sẵn"
 
 
 def run_custom_mode_ui():
     pygame.init()
     pygame.key.start_text_input()
     settings = load_settings()
-    screen = create_display(CUSTOM_WINDOW_SIZE, "Che do custom", fullscreen=settings.get("fullscreen", False))
+    screen = create_display(CUSTOM_WINDOW_SIZE, "Chế độ custom", fullscreen=settings.get("fullscreen", False))
     apply_window_icon()
-    title_font = get_font(28)
-    font = get_font(18, ui=True, bold=True)
-    small_font = get_font(15, ui=True)
-    tiny_font = get_font(13, ui=True)
+    title_font = get_font(27)
+    font = get_font(16, ui=True, bold=True)
+    small_font = get_font(12, ui=True)
+    tiny_font = get_font(11, ui=True)
     clock = pygame.time.Clock()
 
     phase = "list"
@@ -752,12 +752,12 @@ def run_custom_mode_ui():
             scroll_y = keep_selected_card_visible(scroll_y, selected_list_index, 126, 16, viewport_height)
 
         if phase == "list":
-            screen.blit(title_font.render("Che do custom", True, (0, 0, 0)), (60, 28))
-            screen.blit(small_font.render("Chon preset da luu, loc nhanh va vao tran ngay.", True, (90, 90, 90)), (60, 62))
+            screen.blit(title_font.render("Chế độ custom", True, (0, 0, 0)), (60, 28))
+            screen.blit(small_font.render("Chọn preset đã lưu, lọc nhanh và vào trận ngay.", True, (90, 90, 90)), (60, 62))
             new_rect = pygame.Rect(766, 44, 180, 42)
             back_rect = pygame.Rect(960, 44, 120, 42)
             draw_button(screen, font, new_rect, "Tao moi", (100, 200, 100))
-            draw_button(screen, font, back_rect, "Quay lai", (220, 120, 120))
+            draw_button(screen, font, back_rect, "Quay lại", (220, 120, 120))
 
             filter_rects = []
             chip_x = 60
@@ -775,11 +775,11 @@ def run_custom_mode_ui():
             content_bottom = screen.get_height() - 110
             card_area_width = screen.get_width() - 142
             if not presets:
-                screen.blit(font.render("Chua co che do nao duoc luu.", True, (90, 90, 90)), (60, 220))
+                screen.blit(font.render("Chưa có chế độ nào được lưu.", True, (90, 90, 90)), (60, 220))
             elif not filtered_presets:
                 empty_rect = pygame.Rect(60, 212, screen.get_width() - 132, 118)
                 draw_panel(screen, empty_rect, fill_color=(247, 239, 223), border_color=PALETTE["panel_dark"], radius=22, shadow=False)
-                empty_copy = "Bo loc nay chua co preset nao. Nhan 1-5 de doi bo loc hoac N de tao moi."
+                empty_copy = "Bộ lọc này chưa có preset nào. Nhấn 1-5 để đổi bộ lọc hoặc N để tạo mới."
                 screen.blit(font.render(clamp_text(font, empty_copy, empty_rect.width - 40), True, (90, 90, 90)), (empty_rect.x + 20, empty_rect.y + 40))
             else:
                 y = card_top - scroll_y
@@ -807,13 +807,13 @@ def run_custom_mode_ui():
                         mode_variant = str(preset.get("mode_variant", "standard") or "standard")
                         turn_mode_label = TURN_MODE_LABELS[normalize_turn_mode(preset.get("turn_mode"))]
                         mode_label = MODE_VARIANTS.get(mode_variant, MODE_VARIANTS["standard"])["label"]
-                        player_label = "Solo vs Bot" if mode_variant == "solo_bot" else "Toan nguoi" if not any(bot_flags) else f"{sum(1 for flag in bot_flags if flag)} bot"
+                        player_label = "Solo vs Bot" if mode_variant == "solo_bot" else "Toàn người" if not any(bot_flags) else f"{sum(1 for flag in bot_flags if flag)} bot"
                         summary = f"{len(names)} slot | {preset.get('num_boxes', 0)} o | {turn_mode_label} | {layout_info['label']}"
                         roster_preview = ", ".join(names[:4]) + (" ..." if len(names) > 4 else "")
 
                         name_copy = clamp_text(font, str(preset.get("name", "Preset")), text_width)
                         summary_copy = clamp_text(small_font, summary, text_width)
-                        roster_copy = clamp_text(small_font, roster_preview or "Chua co ten nguoi choi", text_width)
+                        roster_copy = clamp_text(small_font, roster_preview or "Chưa có tên người chơi", text_width)
                         screen.blit(font.render(name_copy, True, (0, 0, 0)), (text_x, rect.y + 14))
                         screen.blit(small_font.render(summary_copy, True, (90, 90, 90)), (text_x, rect.y + 44))
                         screen.blit(small_font.render(roster_copy, True, (90, 90, 90)), (text_x, rect.y + 68))
@@ -829,7 +829,7 @@ def run_custom_mode_ui():
                             roster_rect,
                             player_label,
                             (231, 245, 236) if player_label == "Toan nguoi" else (245, 230, 236),
-                            PALETTE["mint_dark"] if player_label == "Toan nguoi" else PALETTE["crimson_dark"],
+                            PALETTE["mint_dark"] if player_label == "Toàn người" else PALETTE["crimson_dark"],
                         )
 
                         play_rect = pygame.Rect(button_x, rect.y + 16, 84, 28)
@@ -861,7 +861,7 @@ def run_custom_mode_ui():
                 if any(selected_bot_flags) or str(selected_preset.get("mode_variant", "standard")) == "solo_bot":
                     status_copy = f"{status_copy} | day la mode co bot"
             else:
-                status_copy = "N tao moi | 1-5 de loc preset | bo loc nay dang trong"
+                status_copy = "N tạo mới | 1-5 để lọc preset | bộ lọc này đang trống"
             draw_hint_bar(screen, tiny_font, pygame.Rect(60, screen.get_height() - 82, screen.get_width() - 120, 30), status_copy)
 
             if mouse_clicked:
@@ -902,11 +902,11 @@ def run_custom_mode_ui():
         elif phase == "name":
             screen.blit(font.render("Dat ten che do", True, (0, 0, 0)), (60, 40))
             draw_box(screen, font, pygame.Rect(60, 120, 520, 46), state["mode_name"], True, caret_visible)
-            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 182, 520, 28), "Nhap ten preset de phan biet de hon | Enter de sang buoc tiep")
+            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 182, 560, 28), "Nhập tên preset để phân biệt dễ hơn | Enter để sang bước tiếp")
             next_rect = pygame.Rect(760, 620, 170, 50)
             back_rect = pygame.Rect(560, 620, 170, 50)
-            draw_button(screen, font, next_rect, "Tiep", (100, 200, 100))
-            draw_button(screen, font, back_rect, "Tro lai", (220, 120, 120))
+            draw_button(screen, font, next_rect, "Tiếp", (100, 200, 100))
+            draw_button(screen, font, back_rect, "Trở lại", (220, 120, 120))
             if mouse_clicked:
                 if next_rect.collidepoint(mouse_pos):
                     error = "" if state["mode_name"].strip() else "Ten che do khong duoc de trong."
@@ -919,11 +919,11 @@ def run_custom_mode_ui():
         elif phase == "players":
             screen.blit(font.render("So nguoi choi", True, (0, 0, 0)), (60, 40))
             draw_box(screen, font, pygame.Rect(60, 120, 200, 46), state["num_players_text"], True, caret_visible)
-            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 182, 420, 28), "Nhap so slot ban muon tao | Enter de sang buoc dat ten")
+            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 182, 470, 28), "Nhập số slot bạn muốn tạo | Enter để sang bước đặt tên")
             next_rect = pygame.Rect(760, 620, 170, 50)
             back_rect = pygame.Rect(560, 620, 170, 50)
-            draw_button(screen, font, next_rect, "Tiep", (100, 200, 100))
-            draw_button(screen, font, back_rect, "Tro lai", (220, 120, 120))
+            draw_button(screen, font, next_rect, "Tiếp", (100, 200, 100))
+            draw_button(screen, font, back_rect, "Trở lại", (220, 120, 120))
             if mouse_clicked:
                 if next_rect.collidepoint(mouse_pos):
                     if valid_number(state["num_players_text"]):
@@ -937,7 +937,7 @@ def run_custom_mode_ui():
                     refresh_text_input()
 
         elif phase == "names":
-            screen.blit(font.render("Nguoi choi", True, (0, 0, 0)), (60, 24))
+            screen.blit(font.render("Người chơi", True, (0, 0, 0)), (60, 24))
             minus_rect = pygame.Rect(60, 90, 45, 38)
             plus_rect = pygame.Rect(185, 90, 45, 38)
             count_rect = pygame.Rect(115, 90, 60, 38)
@@ -978,7 +978,7 @@ def run_custom_mode_ui():
                 rect = pygame.Rect(x, y, 156, 42)
                 toggle_rect = pygame.Rect(x + 164, y, 56, 42)
                 draw_box(screen, font, rect, name, index == editing, index == editing and caret_visible)
-                toggle_label = "BOT" if state["player_bot_flags"][index] else "Nguoi"
+                toggle_label = "BOT" if state["player_bot_flags"][index] else "Người"
                 toggle_fill = (244, 217, 223) if state["player_bot_flags"][index] else (225, 241, 230)
                 toggle_border = PALETTE["crimson_dark"] if state["player_bot_flags"][index] else PALETTE["mint_dark"]
                 draw_button(screen, small_font, toggle_rect, toggle_label, toggle_fill, (0, 0, 0), toggle_border)
@@ -986,12 +986,12 @@ def run_custom_mode_ui():
             bot_count = sum(1 for flag in state["player_bot_flags"] if flag)
             hint_copy = "Tab de doi o, click de chon nhanh. Van nguoi voi nguoi dang la luong chinh."
             if bot_count:
-                hint_copy = f"Dang co {bot_count} bot. Neu giu bot, manual mode se doi ve Lan luot khi bat dau."
-            draw_hint_bar(screen, small_font, pygame.Rect(60, 584, 960, 30), hint_copy)
+                hint_copy = f"Đang có {bot_count} bot. Nếu giữ bot, manual mode sẽ đổi về Lần lượt khi bắt đầu."
+            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 584, 960, 30), hint_copy)
             next_rect = pygame.Rect(760, 620, 170, 50)
             back_rect = pygame.Rect(560, 620, 170, 50)
-            draw_button(screen, font, next_rect, "Tiep", (100, 200, 100))
-            draw_button(screen, font, back_rect, "Tro lai", (220, 120, 120))
+            draw_button(screen, font, next_rect, "Tiếp", (100, 200, 100))
+            draw_button(screen, font, back_rect, "Trở lại", (220, 120, 120))
             if mouse_clicked:
                 if minus_rect.collidepoint(mouse_pos) and len(state["player_names"]) > 1:
                     editing = set_mode_player_count(state, editing, len(state["player_names"]) - 1)
@@ -1026,16 +1026,16 @@ def run_custom_mode_ui():
                                 state["player_bot_flags"][index] = not state["player_bot_flags"][index]
 
         elif phase == "boxes":
-            screen.blit(font.render("So o may man", True, (0, 0, 0)), (60, 40))
+            screen.blit(font.render("Số ô may mắn", True, (0, 0, 0)), (60, 40))
             draw_box(screen, font, pygame.Rect(60, 120, 200, 46), state["num_boxes_text"], True, caret_visible)
-            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 182, 420, 28), "So o quyet dinh do dai van | Enter de sang buoc luat va layout")
+            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 182, 520, 28), "Số ô quyết định độ dài ván | Enter để sang bước luật và layout")
             next_rect = pygame.Rect(760, 620, 170, 50)
             back_rect = pygame.Rect(560, 620, 170, 50)
-            draw_button(screen, font, next_rect, "Tiep", (100, 200, 100))
-            draw_button(screen, font, back_rect, "Tro lai", (220, 120, 120))
+            draw_button(screen, font, next_rect, "Tiếp", (100, 200, 100))
+            draw_button(screen, font, back_rect, "Trở lại", (220, 120, 120))
             if mouse_clicked:
                 if next_rect.collidepoint(mouse_pos):
-                    error = "" if valid_number(state["num_boxes_text"]) else "So o khong hop le."
+                    error = "" if valid_number(state["num_boxes_text"]) else "Số ô không hợp lệ."
                     if not error:
                         phase = "turn_mode"
                 elif back_rect.collidepoint(mouse_pos):
@@ -1044,8 +1044,8 @@ def run_custom_mode_ui():
 
         elif phase == "turn_mode":
             screen.blit(font.render("Kieu den luot", True, (0, 0, 0)), (60, 40))
-            screen.blit(small_font.render("Chon cach xac dinh nguoi mo o tiep theo, layout va do kho cua bot.", True, (90, 90, 90)), (60, 74))
-            draw_hint_bar(screen, small_font, pygame.Rect(60, 102, 960, 28), "A-S den luot | Z-X-C AI | Q-W-E-R layout | Enter de sang buoc effect")
+            screen.blit(small_font.render("Chọn cách xác định người mở ô tiếp theo, layout và độ khó của bot.", True, (90, 90, 90)), (60, 74))
+            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 102, 960, 28), "A-S đến lượt | Z-X-C AI | Q-W-E-R layout | Enter để sang bước effect")
             sequential_rect = pygame.Rect(60, 140, 460, 130)
             manual_rect = pygame.Rect(560, 140, 460, 130)
             next_rect = pygame.Rect(760, 620, 170, 50)
@@ -1053,7 +1053,7 @@ def run_custom_mode_ui():
             has_bots = any(state["player_bot_flags"])
             options = [
                 (SEQUENTIAL_TURN_MODE, sequential_rect, TURN_MODE_LABELS[SEQUENTIAL_TURN_MODE], "Tu dong quay vong tu nguoi dau den nguoi cuoi."),
-                (MANUAL_TURN_MODE, manual_rect, TURN_MODE_LABELS[MANUAL_TURN_MODE], "Nguoi choi tu click chon ten truoc khi mo o."),
+                (MANUAL_TURN_MODE, manual_rect, TURN_MODE_LABELS[MANUAL_TURN_MODE], "Người chơi tự click chọn tên trước khi mở ô."),
             ]
             for mode_value, rect, title, description in options:
                 active = state["turn_mode"] == mode_value
@@ -1065,7 +1065,7 @@ def run_custom_mode_ui():
                 screen.blit(font.render(title, True, (0, 0, 0)), (rect.x + 18, rect.y + 20))
                 screen.blit(small_font.render(description, True, (80, 80, 80)), (rect.x + 18, rect.y + 68))
                 if disabled:
-                    disabled_text = small_font.render("Co bot: khi bat dau se dung Lan luot.", True, PALETTE["crimson_dark"])
+                    disabled_text = small_font.render("Có bot: khi bắt đầu sẽ dùng Lần lượt.", True, PALETTE["crimson_dark"])
                     screen.blit(disabled_text, (rect.x + 18, rect.bottom - 28))
 
             ai_rects = []
@@ -1095,7 +1095,7 @@ def run_custom_mode_ui():
                 draw_layout_preview(screen, preview_rect, state["num_boxes_text"], layout["columns"], active=active)
                 layout_rects.append((layout_id, rect))
 
-            snapshot_rect = pygame.Rect(60, 602, 460, 46)
+            snapshot_rect = pygame.Rect(60, 598, 460, 52)
             draw_custom_mode_snapshot_card(
                 screen,
                 snapshot_rect,
@@ -1104,8 +1104,8 @@ def run_custom_mode_ui():
                 small_font,
                 tiny_font,
             )
-            draw_button(screen, font, next_rect, "Tiep", (100, 200, 100))
-            draw_button(screen, font, back_rect, "Tro lai", (220, 120, 120))
+            draw_button(screen, font, next_rect, "Tiếp", (100, 200, 100))
+            draw_button(screen, font, back_rect, "Trở lại", (220, 120, 120))
             if mouse_clicked:
                 if sequential_rect.collidepoint(mouse_pos):
                     state["turn_mode"] = SEQUENTIAL_TURN_MODE
@@ -1132,7 +1132,7 @@ def run_custom_mode_ui():
             add_effect_rect = pygame.Rect(60, 90, 200, 42)
             reset_rect = pygame.Rect(280, 90, 160, 42)
             draw_button(screen, font, add_effect_rect, "Them effect", (120, 180, 230))
-            draw_button(screen, font, reset_rect, "Mac dinh", (230, 230, 180))
+            draw_button(screen, font, reset_rect, "Mặc định", (230, 230, 180))
             filter_rects = []
             filter_x = 470
             filter_widths = {"all": 86, "builtin": 100, "custom": 94}
@@ -1143,7 +1143,7 @@ def run_custom_mode_ui():
                 filter_x = rect.right + 10
             active_weight_count = sum(1 for effect in filtered_effects if state["weights"].get(str(effect["id"]), 0.0) > 0)
             summary_rect = pygame.Rect(788, 96, 232, 30)
-            draw_hint_bar(screen, tiny_font, summary_rect, f"Loc {len(filtered_effects)} effect | dang bat {active_weight_count}", fill_color=(247, 239, 223))
+            draw_hint_bar(screen, tiny_font, summary_rect, f"Lọc {len(filtered_effects)} effect | đang bật {active_weight_count}", fill_color=(247, 239, 223))
 
             row_top = 150
             row_height = 58
@@ -1179,9 +1179,9 @@ def run_custom_mode_ui():
 
             back_rect = pygame.Rect(560, 620, 170, 50)
             next_rect = pygame.Rect(760, 620, 170, 50)
-            draw_button(screen, font, back_rect, "Tro lai", (220, 120, 120))
-            draw_button(screen, font, next_rect, "Bat dau", (100, 200, 100))
-            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 582, 460, 28), "1-3 de loc effect | +/- de chinh nhanh | Enter sang buoc luu")
+            draw_button(screen, font, back_rect, "Trở lại", (220, 120, 120))
+            draw_button(screen, font, next_rect, "Bắt đầu", (100, 200, 100))
+            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 582, 520, 28), "1-3 để lọc effect | +/- để chỉnh nhanh | Enter sang bước lưu")
             if mouse_clicked:
                 handled = False
                 for filter_key, rect in filter_rects:
@@ -1249,13 +1249,13 @@ def run_custom_mode_ui():
             preview_text = f"Preview: {effect_editor['name'].strip() or 'Effect moi'} | {CUSTOM_EFFECT_OPERATION_LABELS[effect_editor['operation']]} | {effect_editor['value_text'] or '0'}"
             preview_copy = clamp_text(small_font, preview_text, preview_rect.width - 28)
             screen.blit(small_font.render(preview_copy, True, (80, 80, 80)), (preview_rect.x + 14, preview_rect.y + 11))
-            draw_hint_bar(screen, tiny_font, pygame.Rect(60, preview_rect.bottom + 12, 520, 28), "Tab de doi field | Enter luu effect | Esc tro lai danh sach effect")
+            draw_hint_bar(screen, tiny_font, pygame.Rect(60, preview_rect.bottom + 12, 620, 28), "Tab để đổi field | Enter lưu effect | Esc trở lại danh sách effect")
 
             save_y = min(screen.get_height() - 80, preview_rect.bottom + 24)
             save_rect = pygame.Rect(760, save_y, 170, 50)
             back_rect = pygame.Rect(560, save_y, 170, 50)
             draw_button(screen, font, save_rect, "Luu effect", (100, 200, 100))
-            draw_button(screen, font, back_rect, "Tro lai", (220, 120, 120))
+            draw_button(screen, font, back_rect, "Trở lại", (220, 120, 120))
             if mouse_clicked:
                 if name_rect.collidepoint(mouse_pos):
                     focus_effect_editor_field(effect_editor, "name")
@@ -1295,7 +1295,7 @@ def run_custom_mode_ui():
             effective_turn_mode = state["turn_mode"]
             if (any(state["player_bot_flags"]) or state["mode_variant"] == "solo_bot") and effective_turn_mode == MANUAL_TURN_MODE:
                 effective_turn_mode = SEQUENTIAL_TURN_MODE
-            snapshot_rect = pygame.Rect(60, 104, 700, 46)
+            snapshot_rect = pygame.Rect(60, 104, 700, 52)
             draw_custom_mode_snapshot_card(
                 screen,
                 snapshot_rect,
@@ -1307,8 +1307,8 @@ def run_custom_mode_ui():
             lines = [
                 f"Ten che do: {state['mode_name'].strip()}",
                 f"So nguoi choi: {len(state['player_names'])}",
-                f"So o: {state['num_boxes_text']}",
-                f"Kieu den luot: {TURN_MODE_LABELS[effective_turn_mode]}",
+                f"Số ô: {state['num_boxes_text']}",
+                f"Kiểu đến lượt: {TURN_MODE_LABELS[effective_turn_mode]}",
                 f"Layout: {BOARD_LAYOUTS.get(state['layout_id'], BOARD_LAYOUTS['classic'])['label']} | AI: {AI_LEVELS.get(state['ai_level'], AI_LEVELS['normal'])['label']}",
             ]
             for index, line in enumerate(lines):
@@ -1333,18 +1333,18 @@ def run_custom_mode_ui():
             solo_active = state["mode_variant"] == "solo_bot"
             pygame.draw.rect(screen, (244, 230, 186) if solo_active else (234, 226, 210), solo_rect, border_radius=12)
             pygame.draw.rect(screen, PALETTE["gold_dark"] if solo_active else PALETTE["panel_dark"], solo_rect, 2, border_radius=12)
-            solo_surface = small_font.render("4 | Solo vs Bot | doi gio", True, (0, 0, 0) if solo_active else (90, 90, 90))
+            solo_surface = small_font.render("4 | Solo vs Bot | đổi giờ", True, (0, 0, 0) if solo_active else (90, 90, 90))
             screen.blit(solo_surface, (solo_rect.centerx - solo_surface.get_width() // 2, solo_rect.centery - solo_surface.get_height() // 2))
             mode_rects.append(("solo_bot", solo_rect))
-            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 432, 940, 24), "1-3 che do chinh | 4 solo bot | Solo vs Bot duoc giu nhu mot lua chon phu")
-            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 534, 700, 28), "Enter de choi va luu nhanh | Choi lan nay se bo qua buoc luu preset vao danh sach")
+            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 432, 940, 24), "1-3 chế độ chính | 4 solo bot | Solo vs Bot được giữ như một lựa chọn phụ")
+            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 534, 700, 28), "Enter để chơi và lưu nhanh | Chơi lần này sẽ bỏ qua bước lưu preset vào danh sách")
 
             save_rect = pygame.Rect(60, 468, 220, 54)
             play_rect = pygame.Rect(300, 468, 220, 54)
             back_rect = pygame.Rect(540, 468, 220, 54)
             draw_button(screen, font, save_rect, "Choi va luu", (100, 200, 100))
             draw_button(screen, font, play_rect, "Chi choi lan nay", (120, 180, 230))
-            draw_button(screen, font, back_rect, "Quay lai", (220, 120, 120))
+            draw_button(screen, font, back_rect, "Quay lại", (220, 120, 120))
             if mouse_clicked:
                 handled_mode = False
                 for mode_id, rect in mode_rects:

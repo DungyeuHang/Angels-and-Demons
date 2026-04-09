@@ -15,6 +15,7 @@ from ui.theme import draw_background
 from ui.theme import draw_button
 from ui.theme import draw_hint_bar
 from ui.theme import draw_panel
+from ui.theme import draw_scrollbar
 from ui.theme import draw_title
 from ui.theme import get_ui_font
 from ui.theme import get_reveal_progress
@@ -42,6 +43,9 @@ def show_stats_screen(screen, font):
     clock = pygame.time.Clock()
     intro_tick = pygame.time.get_ticks()
     reduce_motion = load_settings().get("reduce_motion", False)
+    left_scroll_y = 0
+    right_scroll_y = 0
+    scroll_speed = 36
 
     while True:
         tick = pygame.time.get_ticks()
@@ -93,9 +97,12 @@ def show_stats_screen(screen, font):
         if angel_badge is not None:
             screen.blit(angel_badge, (left_rect.right - 48, left_rect.y + 10))
 
-        left_y = left_rect.y + 54
+        left_body_rect = pygame.Rect(left_rect.x + 8, left_rect.y + 44, left_rect.width - 22, left_rect.height - 54)
+        left_y = left_rect.y + 54 - left_scroll_y
+        previous_clip = screen.get_clip()
+        screen.set_clip(left_body_rect)
         if summary["top_players"]:
-            for index, (name, wins) in enumerate(summary["top_players"][:5], start=1):
+            for index, (name, wins) in enumerate(summary["top_players"], start=1):
                 row_rect = pygame.Rect(left_rect.x + 14, left_y, left_rect.width - 28, 42)
                 draw_panel(screen, row_rect, fill_color=(247, 239, 223), border_color=PALETTE["panel_dark"], radius=14, shadow=False)
                 player_label = clamp_text(small_font, f"{index}. {name}", row_rect.width - 118)
@@ -109,7 +116,7 @@ def show_stats_screen(screen, font):
 
         screen.blit(heading_font.render("Top effect", True, PALETTE["text"]), (left_rect.x + 16, left_y + 10))
         left_y += 46
-        for effect_id, count in summary["top_effects"][:5]:
+        for effect_id, count in summary["top_effects"]:
             row_rect = pygame.Rect(left_rect.x + 14, left_y, left_rect.width - 28, 38)
             draw_panel(screen, row_rect, fill_color=(247, 239, 223), border_color=PALETTE["panel_dark"], radius=12, shadow=False)
             effect_label = clamp_text(small_font, get_effect_label(effect_id, fallback=effect_id), row_rect.width - 78)
@@ -119,15 +126,23 @@ def show_stats_screen(screen, font):
             if row_rect.collidepoint(mouse_pos):
                 hover_hint = f"{get_effect_label(effect_id, fallback=effect_id)}: {get_effect_help(effect_id)}"
             left_y += 44
+        left_content_height = max(0, left_y - left_rect.y + 8)
+        left_max_scroll = max(0, left_content_height - left_body_rect.height)
+        screen.set_clip(previous_clip)
+        if left_max_scroll > 0:
+            draw_scrollbar(screen, pygame.Rect(left_rect.right - 12, left_body_rect.y + 4, 8, left_body_rect.height - 8), left_content_height, left_body_rect.height, left_scroll_y, accent_color=PALETTE["gold_dark"])
 
         screen.blit(heading_font.render("Thanh tuu", True, PALETTE["text"]), (right_rect.x + 16, right_rect.y + 12))
         if demon_badge is not None:
             screen.blit(demon_badge, (right_rect.right - 48, right_rect.y + 10))
 
-        achievement_y = right_rect.y + 52
+        right_body_rect = pygame.Rect(right_rect.x + 8, right_rect.y + 44, right_rect.width - 22, right_rect.height - 54)
+        achievement_y = right_rect.y + 52 - right_scroll_y
+        previous_clip = screen.get_clip()
+        screen.set_clip(right_body_rect)
         achievements = summary["achievements"]
         if achievements:
-            for achievement in achievements[:6]:
+            for achievement in achievements:
                 row_rect = pygame.Rect(right_rect.x + 14, achievement_y, right_rect.width - 28, 58)
                 draw_panel(screen, row_rect, fill_color=(247, 239, 223), border_color=PALETTE["panel_dark"], radius=14, shadow=False)
                 title_text = clamp_text(small_font, achievement["title"], row_rect.width - 24)
@@ -139,6 +154,11 @@ def show_stats_screen(screen, font):
                 achievement_y += 66
         else:
             screen.blit(small_font.render("Chua mo khoa thanh tuu nao. Choi them de lap day bang vang.", True, PALETTE["muted"]), (right_rect.x + 16, achievement_y))
+        right_content_height = max(0, achievement_y - right_rect.y + 8)
+        right_max_scroll = max(0, right_content_height - right_body_rect.height)
+        screen.set_clip(previous_clip)
+        if right_max_scroll > 0:
+            draw_scrollbar(screen, pygame.Rect(right_rect.right - 12, right_body_rect.y + 4, 8, right_body_rect.height - 8), right_content_height, right_body_rect.height, right_scroll_y, accent_color=PALETTE["lilac"])
 
         footer_rect = get_reveal_rect(
             pygame.Rect(panel_rect.x + 38, panel_rect.bottom - 72, panel_rect.width - 76, 44),
@@ -162,7 +182,7 @@ def show_stats_screen(screen, font):
             screen,
             tiny_font,
             hint_rect,
-            hover_hint or f"Lan gan nhat: {last_winner} | {last_played_at} | Esc de quay lai | Re vao Top effect hoac Thanh tuu de xem them chi tiet",
+            hover_hint or f"Lan gan nhat: {last_winner} | {last_played_at} | Con lan de cuon tung cot | Esc de quay lai",
         )
 
         back_rect = get_reveal_rect(
@@ -172,6 +192,8 @@ def show_stats_screen(screen, font):
         )
         draw_button(screen, small_font, back_rect, "Quay lai", PALETTE["mint"], PALETTE["mint_dark"], back_rect.collidepoint(mouse_pos), PALETTE["text"])
 
+        left_scroll_y = max(0, min(left_scroll_y, left_max_scroll))
+        right_scroll_y = max(0, min(right_scroll_y, right_max_scroll))
         pygame.display.flip()
 
         for event in pygame.event.get():
@@ -179,6 +201,51 @@ def show_stats_screen(screen, font):
                 return
             if event.type == pygame.KEYDOWN and event.key in {pygame.K_ESCAPE, pygame.K_RETURN}:
                 return
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_UP:
+                if left_rect.collidepoint(mouse_pos):
+                    left_scroll_y = max(0, left_scroll_y - scroll_speed)
+                elif right_rect.collidepoint(mouse_pos):
+                    right_scroll_y = max(0, right_scroll_y - scroll_speed)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_DOWN:
+                if left_rect.collidepoint(mouse_pos):
+                    left_scroll_y = min(left_max_scroll, left_scroll_y + scroll_speed)
+                elif right_rect.collidepoint(mouse_pos):
+                    right_scroll_y = min(right_max_scroll, right_scroll_y + scroll_speed)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_PAGEUP:
+                if left_rect.collidepoint(mouse_pos):
+                    left_scroll_y = max(0, left_scroll_y - max(120, left_body_rect.height - 100))
+                elif right_rect.collidepoint(mouse_pos):
+                    right_scroll_y = max(0, right_scroll_y - max(120, right_body_rect.height - 100))
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_PAGEDOWN:
+                if left_rect.collidepoint(mouse_pos):
+                    left_scroll_y = min(left_max_scroll, left_scroll_y + max(120, left_body_rect.height - 100))
+                elif right_rect.collidepoint(mouse_pos):
+                    right_scroll_y = min(right_max_scroll, right_scroll_y + max(120, right_body_rect.height - 100))
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_HOME:
+                if left_rect.collidepoint(mouse_pos):
+                    left_scroll_y = 0
+                elif right_rect.collidepoint(mouse_pos):
+                    right_scroll_y = 0
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_END:
+                if left_rect.collidepoint(mouse_pos):
+                    left_scroll_y = left_max_scroll
+                elif right_rect.collidepoint(mouse_pos):
+                    right_scroll_y = right_max_scroll
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 4:
+                if left_rect.collidepoint(mouse_pos):
+                    left_scroll_y = max(0, left_scroll_y - scroll_speed)
+                elif right_rect.collidepoint(mouse_pos):
+                    right_scroll_y = max(0, right_scroll_y - scroll_speed)
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 5:
+                if left_rect.collidepoint(mouse_pos):
+                    left_scroll_y = min(left_max_scroll, left_scroll_y + scroll_speed)
+                elif right_rect.collidepoint(mouse_pos):
+                    right_scroll_y = min(right_max_scroll, right_scroll_y + scroll_speed)
+            if event.type == pygame.MOUSEWHEEL:
+                if left_rect.collidepoint(mouse_pos):
+                    left_scroll_y = max(0, min(left_max_scroll, left_scroll_y - event.y * scroll_speed))
+                elif right_rect.collidepoint(mouse_pos):
+                    right_scroll_y = max(0, min(right_max_scroll, right_scroll_y - event.y * scroll_speed))
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and back_rect.collidepoint(event.pos):
                 return
         clock.tick(60)

@@ -1,4 +1,6 @@
 import math
+import os
+import sys
 
 import pygame
 
@@ -27,15 +29,53 @@ PALETTE = {
 }
 
 
+if getattr(sys, "frozen", False):
+    BASE_DIR = sys._MEIPASS
+else:
+    BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+UI_FONT_PATH = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
+_FONT_CACHE = {}
+
+
+def normalize_display_text(text):
+    value = str(text or "")
+    if not any(marker in value for marker in ("Ã", "Â", "Ä", "Æ", "á", "º", "»", "â")):
+        return value
+
+    fixed = value
+    for _ in range(2):
+        try:
+            repaired = fixed.encode("latin1").decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            break
+        if repaired == fixed:
+            break
+        fixed = repaired
+    return fixed
+
+
 def get_ui_font(size, bold=False, italic=False):
+    cache_key = (int(size), bool(bold), bool(italic))
+    if cache_key in _FONT_CACHE:
+        return _FONT_CACHE[cache_key]
+
     try:
-        return pygame.font.SysFont(["segoeui", "calibri", "arial"], size, bold=bold, italic=italic)
+        adjustment = 2 if int(size) >= 14 else 1
+        adjusted_size = max(10, int(size) - adjustment)
+        font = pygame.font.Font(UI_FONT_PATH, adjusted_size)
     except Exception:
-        return pygame.font.Font(None, size)
+        try:
+            font = pygame.font.SysFont(["segoeui", "calibri", "arial"], size, bold=bold, italic=italic)
+        except Exception:
+            font = pygame.font.Font(None, size)
+
+    _FONT_CACHE[cache_key] = font
+    return font
 
 
 def clamp_text(font, text, max_width, suffix="..."):
-    text = str(text or "")
+    text = normalize_display_text(text)
     if max_width <= 0:
         return ""
     if font.size(text)[0] <= max_width:
@@ -48,7 +88,7 @@ def clamp_text(font, text, max_width, suffix="..."):
 
 
 def wrap_text(font, text, max_width, max_lines=None):
-    words = str(text or "").split()
+    words = normalize_display_text(text).split()
     if not words:
         return []
 
@@ -361,12 +401,13 @@ def draw_button(surface, font, rect, label, base_color, accent_color, hovered=Fa
     pygame.draw.rect(shine, (255, 255, 255, 42), pygame.Rect(8, 6, button_rect.width - 16, max(16, button_rect.height // 3)), border_radius=16)
     surface.blit(shine, button_rect.topleft)
 
-    text = font.render(label, True, text_color)
+    text = font.render(normalize_display_text(label), True, text_color)
     surface.blit(text, (button_rect.centerx - text.get_width() // 2, button_rect.centery - text.get_height() // 2))
 
 
 def draw_title(surface, font, text, center, color=None):
     color = color or PALETTE["text"]
+    text = normalize_display_text(text)
     shadow = font.render(text, True, PALETTE["white"])
     shadow_rect = shadow.get_rect(center=(center[0] + 3, center[1] + 4))
     surface.blit(shadow, shadow_rect)
@@ -379,6 +420,7 @@ def draw_title(surface, font, text, center, color=None):
 
 def draw_subtitle(surface, font, text, center, color=None):
     color = color or PALETTE["muted"]
+    text = normalize_display_text(text)
     subtitle = font.render(text, True, color)
     rect = subtitle.get_rect(center=center)
     surface.blit(subtitle, rect)
@@ -390,7 +432,7 @@ def draw_hint_bar(surface, font, rect, text, fill_color=None, border_color=None,
     border_color = border_color or PALETTE["panel_dark"]
     text_color = text_color or PALETTE["muted"]
     draw_panel(surface, rect, fill_color=fill_color, border_color=border_color, radius=16, shadow=False)
-    text_surface = font.render(clamp_text(font, text, rect.width - 24), True, text_color)
+    text_surface = font.render(clamp_text(font, normalize_display_text(text), rect.width - 24), True, text_color)
     surface.blit(text_surface, (rect.centerx - text_surface.get_width() // 2, rect.centery - text_surface.get_height() // 2))
     return rect
 

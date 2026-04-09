@@ -26,6 +26,7 @@ from ui.theme import draw_button
 from ui.theme import draw_glow
 from ui.theme import draw_hint_bar
 from ui.theme import draw_panel
+from ui.theme import draw_scrollbar
 from ui.theme import draw_subtitle
 from ui.theme import draw_title
 from ui.theme import get_reveal_progress
@@ -43,7 +44,7 @@ else:
 
 
 def placeholder_name(index):
-    return f"Nguoi {index + 1}"
+    return f"Người {index + 1}"
 
 
 def ensure_player_state(state, count):
@@ -119,7 +120,7 @@ def build_launch_payload(state):
         human_name = get_first_human_name(players)
         players = [
             Player(human_name, is_bot=False, ai_level=state["ai_level"], avatar_variant="angel"),
-            Player("AI Doi thu", is_bot=True, ai_level=state["ai_level"], avatar_variant="demon"),
+            Player("AI Đối thủ", is_bot=True, ai_level=state["ai_level"], avatar_variant="demon"),
         ]
         turn_mode = SEQUENTIAL_TURN_MODE
     elif mode_variant == "challenge":
@@ -134,7 +135,7 @@ def build_launch_payload(state):
                 "layout_id": str(preset.get("layout_id", state["layout_id"])),
                 "match_preset": str(preset.get("match_preset", "quick")),
                 "challenge_id": challenge_id,
-                "challenge_title": str(preset.get("label", "Challenge")),
+                "challenge_title": str(preset.get("label", "Thử thách")),
             }
         )
     elif mode_variant == "best_of_three":
@@ -204,7 +205,7 @@ def resolve_setup_snapshot(state):
         match_preset = str(challenge.get("match_preset", match_preset))
         layout_id = str(challenge.get("layout_id", layout_id))
         turn_mode = normalize_turn_mode(challenge.get("turn_mode"))
-        challenge_label = str(challenge.get("label", "Challenge"))
+        challenge_label = str(challenge.get("label", "Thử thách"))
 
     match_info = MATCH_PRESETS.get(match_preset, MATCH_PRESETS["classic"])
     layout_info = BOARD_LAYOUTS.get(layout_id, BOARD_LAYOUTS["classic"])
@@ -221,7 +222,7 @@ def resolve_setup_snapshot(state):
         "layout_label": layout_info["label"],
         "layout_columns": int(layout_info["columns"]),
         "turn_mode": turn_mode,
-        "turn_label": TURN_MODE_LABELS.get(turn_mode, "Lan luot"),
+        "turn_label": TURN_MODE_LABELS.get(turn_mode, "Lần lượt"),
         "ai_label": ai_info["label"],
         "slot_count": slot_count,
     }
@@ -271,15 +272,15 @@ def draw_setup_snapshot_card(surface, rect, snapshot, title_font, body_font, tin
     draw_layout_preview(surface, preview_rect, snapshot["num_boxes"], snapshot["layout_columns"], active=True)
 
     title_prefix = snapshot["challenge_label"] if snapshot["challenge_label"] else snapshot["mode_label"]
-    title_copy = clamp_text(title_font, f"{title_prefix} | {snapshot['match_label']} | {snapshot['num_boxes']} o", rect.width - 94)
+    title_copy = clamp_text(title_font, f"{title_prefix} | {snapshot['match_label']} | {snapshot['num_boxes']} ô", rect.width - 94)
     detail_copy = clamp_text(
         body_font,
-        f"{snapshot['layout_label']} | {snapshot['turn_label']} | AI {snapshot['ai_label']} | {snapshot['slot_count']} slot",
+        f"{snapshot['layout_label']} | {snapshot['turn_label']} | AI {snapshot['ai_label']} | {snapshot['slot_count']} người",
         rect.width - 94,
     )
     surface.blit(title_font.render(title_copy, True, PALETTE["text"]), (rect.x + 82, rect.y + 8))
     surface.blit(body_font.render(detail_copy, True, PALETTE["muted"]), (rect.x + 82, rect.y + 25))
-    footer_copy = clamp_text(tiny_font, "Preview layout song theo lua chon hien tai.", rect.width - 94)
+    footer_copy = clamp_text(tiny_font, "Xem nhanh layout hiện tại theo các lựa chọn của bạn.", rect.width - 94)
     surface.blit(tiny_font.render(footer_copy, True, PALETTE["muted"]), (rect.x + 82, rect.bottom - 15))
 
 
@@ -336,14 +337,14 @@ def run_custom_setup_ui():
     pygame.key.start_text_input()
 
     settings = load_settings()
-    screen = create_display(SETUP_WINDOW_SIZE, "Chuan bi van choi", fullscreen=settings.get("fullscreen", False))
+    screen = create_display(SETUP_WINDOW_SIZE, "Chuẩn bị ván chơi", fullscreen=settings.get("fullscreen", False))
     apply_window_icon()
 
     font_path = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
-    title_font = pygame.font.Font(font_path, 30)
-    font = get_ui_font(19, bold=True)
-    small_font = get_ui_font(15)
-    tiny_font = get_ui_font(13)
+    title_font = pygame.font.Font(font_path, 26)
+    font = get_ui_font(15, bold=True)
+    small_font = get_ui_font(11)
+    tiny_font = get_ui_font(10)
     clock = pygame.time.Clock()
     reduce_motion = settings.get("reduce_motion", False)
     screen_started_at = pygame.time.get_ticks()
@@ -363,6 +364,8 @@ def run_custom_setup_ui():
         "error": "",
     }
     focus_player_field(state, 0)
+    phase_scroll_y = 0
+    scroll_speed = 40
 
     while True:
         tick = pygame.time.get_ticks()
@@ -376,13 +379,13 @@ def run_custom_setup_ui():
 
         panel_rect = get_reveal_rect(pygame.Rect(34, 22, screen.get_width() - 68, screen.get_height() - 44), panel_progress, offset_y=20)
         draw_panel(screen, panel_rect, fill_color=(248, 241, 225), border_color=PALETTE["gold_dark"], radius=30)
-        draw_title(screen, title_font, "Chuan bi van choi", (panel_rect.centerx, panel_rect.y + 48), PALETTE["text"])
-        draw_subtitle(screen, small_font, "Chon nguoi choi, bot, layout va nhip do tran dau truoc khi vao san.", (panel_rect.centerx, panel_rect.y + 82))
+        draw_title(screen, title_font, "Chuẩn bị ván chơi", (panel_rect.centerx, panel_rect.y + 48), PALETTE["text"])
+        draw_subtitle(screen, small_font, "Chọn người chơi, bot, layout và nhịp độ trận đấu trước khi vào sân.", (panel_rect.centerx, panel_rect.y + 82))
 
         step_labels = [
-            ("players", "1. Nguoi choi"),
-            ("match", "2. Tran dau"),
-            ("rules", "3. Luat & AI"),
+            ("players", "1. Người chơi"),
+            ("match", "2. Trận đấu"),
+            ("rules", "3. Luật & AI"),
         ]
         for index, (phase_key, label) in enumerate(step_labels):
             chip_progress = get_reveal_progress(phase_started_at, tick, duration=280, delay_ms=index * 32, reduce_motion=reduce_motion)
@@ -403,6 +406,8 @@ def run_custom_setup_ui():
 
         main_rect = get_reveal_rect(pygame.Rect(panel_rect.x + 34, panel_rect.y + 158, panel_rect.width - 68, panel_rect.height - 228), phase_progress, offset_y=14)
         draw_panel(screen, main_rect, fill_color=(252, 245, 235), border_color=PALETTE["lilac"], radius=26, shadow=False)
+        content_view_rect = pygame.Rect(main_rect.x + 8, main_rect.y + 8, main_rect.width - 16, main_rect.height - 16)
+        phase_max_scroll = 0
         next_rect = get_reveal_rect(pygame.Rect(panel_rect.right - 224, panel_rect.bottom - 62, 178, 42), phase_progress, offset_y=10)
         back_rect = get_reveal_rect(pygame.Rect(panel_rect.right - 418, panel_rect.bottom - 62, 160, 42), phase_progress, offset_y=10)
 
@@ -432,7 +437,7 @@ def run_custom_setup_ui():
                             state["error"] = ""
                             play_sfx("ui_click", volume_multiplier=0.5)
                         else:
-                            state["error"] = "Hay nhap ten cho tat ca nguoi choi."
+                            state["error"] = "Hãy nhập tên cho tất cả người chơi."
                     elif state["phase"] == "match":
                         state["phase"] = "rules"
                         state["error"] = ""
@@ -447,13 +452,36 @@ def run_custom_setup_ui():
                     play_sfx("ui_click", volume_multiplier=0.42)
             elif event.type == pygame.TEXTINPUT and state["phase"] == "players" and state["player_names"]:
                 state["player_names"][state["editing"]] += event.text
+            elif event.type == pygame.KEYDOWN and event.key in {pygame.K_UP, pygame.K_w}:
+                phase_scroll_y = max(0, phase_scroll_y - scroll_speed)
+            elif event.type == pygame.KEYDOWN and event.key in {pygame.K_DOWN, pygame.K_s}:
+                phase_scroll_y = min(phase_max_scroll, phase_scroll_y + scroll_speed)
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_PAGEUP:
+                phase_scroll_y = max(0, phase_scroll_y - max(120, content_view_rect.height - 100))
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_PAGEDOWN:
+                phase_scroll_y = min(phase_max_scroll, phase_scroll_y + max(120, content_view_rect.height - 100))
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_HOME:
+                phase_scroll_y = 0
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_END:
+                phase_scroll_y = phase_max_scroll
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 4 and content_view_rect.collidepoint(mouse_pos):
+                phase_scroll_y = max(0, phase_scroll_y - scroll_speed)
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 5 and content_view_rect.collidepoint(mouse_pos):
+                phase_scroll_y = min(phase_max_scroll, phase_scroll_y + scroll_speed)
+            elif event.type == pygame.MOUSEWHEEL and content_view_rect.collidepoint(mouse_pos):
+                phase_scroll_y = max(0, min(phase_max_scroll, phase_scroll_y - event.y * scroll_speed))
 
         if state["phase"] != phase_before_events:
             phase_started_at = tick
+            phase_scroll_y = 0
 
         if state["phase"] == "players":
-            draw_title(screen, font, "Nguoi choi", (main_rect.centerx, main_rect.y + 34), PALETTE["text"])
-            draw_subtitle(screen, small_font, "Mac dinh uu tien nguoi voi nguoi. Neu can ban van co the bat bot cho tung slot rieng.", (main_rect.centerx, main_rect.y + 62))
+            players_origin_y = main_rect.y - phase_scroll_y
+            previous_clip = screen.get_clip()
+            screen.set_clip(content_view_rect)
+            main_rect = main_rect.move(0, -phase_scroll_y)
+            draw_title(screen, font, "Người chơi", (main_rect.centerx, main_rect.y + 34), PALETTE["text"])
+            draw_subtitle(screen, small_font, "Mặc định ưu tiên người với người. Nếu cần bạn vẫn có thể bật bot cho từng slot riêng.", (main_rect.centerx, main_rect.y + 62))
 
             minus_rect = pygame.Rect(main_rect.x + 38, main_rect.y + 90, 46, 38)
             count_rect = pygame.Rect(main_rect.x + 94, main_rect.y + 90, 70, 38)
@@ -464,7 +492,7 @@ def run_custom_setup_ui():
             screen.blit(count_surface, (count_rect.centerx - count_surface.get_width() // 2, count_rect.centery - count_surface.get_height() // 2))
             draw_button(screen, font, plus_rect, "+", PALETTE["panel_soft"], PALETTE["panel_dark"], plus_rect.collidepoint(mouse_pos), PALETTE["text"])
 
-            quick_label = tiny_font.render("Preset nhanh cho van nguoi voi nguoi", True, PALETTE["muted"])
+            quick_label = tiny_font.render("Preset nhanh cho ván người với người", True, PALETTE["muted"])
             screen.blit(quick_label, (main_rect.x + 248, main_rect.y + 98))
             preset_count_rects = []
             for preset_index, count in enumerate((2, 4, 6, 8)):
@@ -474,7 +502,7 @@ def run_custom_setup_ui():
                     screen,
                     tiny_font,
                     rect,
-                    f"{count} nguoi",
+                    f"{count} người",
                     (247, 223, 184) if active else (241, 234, 221),
                     PALETTE["gold_dark"] if active else PALETTE["panel_dark"],
                     rect.collidepoint(mouse_pos),
@@ -488,7 +516,7 @@ def run_custom_setup_ui():
                 screen,
                 tiny_font,
                 humans_only_rect,
-                "Tat ca la nguoi",
+                "Tất cả là người",
                 (231, 245, 236) if all_human_active else (241, 234, 221),
                 PALETTE["mint_dark"] if all_human_active else PALETTE["panel_dark"],
                 humans_only_rect.collidepoint(mouse_pos),
@@ -498,6 +526,7 @@ def run_custom_setup_ui():
             name_rects = []
             per_row = 3
             box_width = (main_rect.width - 110) // per_row
+            player_rows = max(1, math.ceil(len(state["player_names"]) / per_row))
             for index, name in enumerate(state["player_names"]):
                 row = index // per_row
                 col = index % per_row
@@ -510,7 +539,7 @@ def run_custom_setup_ui():
                     screen,
                     small_font,
                     mode_rect,
-                    "BOT" if state["player_bot_flags"][index] else "Nguoi",
+                    "BOT" if state["player_bot_flags"][index] else "Người",
                     PALETTE["crimson"] if state["player_bot_flags"][index] else PALETTE["mint"],
                     PALETTE["crimson_dark"] if state["player_bot_flags"][index] else PALETTE["mint_dark"],
                     mode_rect.collidepoint(mouse_pos),
@@ -519,11 +548,23 @@ def run_custom_setup_ui():
                 name_rects.append((index, name_rect, mode_rect))
 
             bot_count = sum(1 for flag in state["player_bot_flags"] if flag)
-            helper_text = "Tab de doi o nhap. Van nguoi voi nguoi dang la luong chinh."
+            helper_text = "Tab để đổi ô nhập. Ván người với người đang là luồng chính."
             if bot_count:
-                helper_text = f"Dang co {bot_count} bot. Neu giu bot, che do Manual se tu doi ve Lan luot khi vao tran."
-            helper_rect = pygame.Rect(main_rect.x + 38, main_rect.bottom - 42, main_rect.width - 76, 30)
+                helper_text = f"Đang có {bot_count} bot. Nếu giữ bot, chế độ Manual sẽ tự đổi về Lần lượt khi vào trận."
+            helper_rect = pygame.Rect(main_rect.x + 38, main_rect.y + 176 + player_rows * 94 + 14, main_rect.width - 76, 32)
             draw_hint_bar(screen, tiny_font, helper_rect, helper_text)
+            players_content_height = 176 + player_rows * 94 + 14 + 32 + 18
+            phase_max_scroll = max(0, players_content_height - content_view_rect.height)
+            screen.set_clip(previous_clip)
+            if phase_max_scroll > 0:
+                draw_scrollbar(
+                    screen,
+                    pygame.Rect(content_view_rect.right - 10, content_view_rect.y + 8, 8, content_view_rect.height - 16),
+                    players_content_height,
+                    content_view_rect.height,
+                    phase_scroll_y,
+                    accent_color=PALETTE["gold_dark"],
+                )
 
             if mouse_clicked:
                 if minus_rect.collidepoint(mouse_pos) and len(state["player_names"]) > 1:
@@ -556,10 +597,10 @@ def run_custom_setup_ui():
                                 play_sfx("ui_click", volume_multiplier=0.45)
 
         elif state["phase"] == "match":
-            draw_title(screen, font, "Nhip do va Ban do", (main_rect.centerx, main_rect.y + 34), PALETTE["text"])
-            draw_subtitle(screen, small_font, "Preset quyet dinh so o. Layout thay doi cach board xep hien thi.", (main_rect.centerx, main_rect.y + 62))
-            shortcut_rect = pygame.Rect(main_rect.x + 86, main_rect.y + 78, main_rect.width - 172, 24)
-            draw_hint_bar(screen, tiny_font, shortcut_rect, "Nhan 1-3 de doi preset | Q W E R de doi layout | Enter de sang buoc tiep theo")
+            draw_title(screen, font, "Nhịp độ và Bản đồ", (main_rect.centerx, main_rect.y + 34), PALETTE["text"])
+            draw_subtitle(screen, small_font, "Preset quyết định số ô. Layout thay đổi cách board xếp hiển thị.", (main_rect.centerx, main_rect.y + 62))
+            shortcut_rect = pygame.Rect(main_rect.x + 86, main_rect.y + 78, main_rect.width - 172, 26)
+            draw_hint_bar(screen, tiny_font, shortcut_rect, "Nhấn 1-3 để đổi preset | Q W E R để đổi layout | Enter để sang bước tiếp theo")
 
             preset_rects = []
             for index, (preset_id, preset) in enumerate(MATCH_PRESETS.items()):
@@ -569,7 +610,7 @@ def run_custom_setup_ui():
                     font,
                     small_font,
                     rect,
-                    f"{preset['label']} - {preset['num_boxes']} o",
+                    f"{preset['label']} - {preset['num_boxes']} ô",
                     preset["description"],
                     active=state["match_preset"] == preset_id,
                     hovered=rect.collidepoint(mouse_pos),
@@ -585,7 +626,7 @@ def run_custom_setup_ui():
                 draw_choice_card(screen, font, small_font, rect, layout["label"], layout["description"], active=is_active, reserve_right=88, hovered=rect.collidepoint(mouse_pos))
                 preview_rect = pygame.Rect(rect.right - 80, rect.y + 16, 60, 60)
                 draw_layout_preview(screen, preview_rect, MATCH_PRESETS[state["match_preset"]]["num_boxes"], layout["columns"], active=is_active)
-                extra = tiny_font.render(f"{layout['columns']} cot | o {layout['box_size']}px", True, PALETTE["muted"])
+                extra = tiny_font.render(f"{layout['columns']} cột | ô {layout['box_size']}px", True, PALETTE["muted"])
                 screen.blit(extra, (rect.x + 16, rect.bottom - 24))
                 layout_rects.append((layout_id, rect))
 
@@ -601,19 +642,22 @@ def run_custom_setup_ui():
 
         else:
             has_bots = any(state["player_bot_flags"])
-            draw_title(screen, font, "Che do, Luat va AI", (main_rect.centerx, main_rect.y + 30), PALETTE["text"])
-            draw_subtitle(screen, small_font, "Chon kieu tran dau, cach quay luot va do kho AI cho van sap toi.", (main_rect.centerx, main_rect.y + 58))
+            previous_clip = screen.get_clip()
+            screen.set_clip(content_view_rect)
+            main_rect = main_rect.move(0, -phase_scroll_y)
+            draw_title(screen, font, "Chế độ, Luật và AI", (main_rect.centerx, main_rect.y + 30), PALETTE["text"])
+            draw_subtitle(screen, small_font, "Chọn kiểu trận đấu, cách quay lượt và độ khó AI cho ván sắp tới.", (main_rect.centerx, main_rect.y + 58))
 
             mode_rects = []
             primary_mode_ids = ["standard", "challenge", "best_of_three"]
-            mode_card_width = 246
-            mode_gap = 16
-            mode_y = main_rect.y + 88
+            mode_card_width = 230
+            mode_gap = 14
+            mode_y = main_rect.y + 92
             total_primary_width = len(primary_mode_ids) * mode_card_width + max(0, len(primary_mode_ids) - 1) * mode_gap
             mode_start_x = main_rect.centerx - total_primary_width // 2
             for index, mode_id in enumerate(primary_mode_ids):
                 mode_data = MODE_VARIANTS[mode_id]
-                rect = pygame.Rect(mode_start_x + index * (mode_card_width + mode_gap), mode_y, mode_card_width, 72)
+                rect = pygame.Rect(mode_start_x + index * (mode_card_width + mode_gap), mode_y, mode_card_width, 84)
                 detail = mode_data["description"]
                 if mode_id == "challenge":
                     challenge_title = CHALLENGE_PRESETS[state["challenge_id"]]["label"]
@@ -624,30 +668,30 @@ def run_custom_setup_ui():
             challenge_prev_rect = None
             challenge_card_rect = None
             challenge_next_rect = None
-            turn_top = main_rect.y + 196
+            turn_top = main_rect.y + 204
             if state["mode_variant"] == "challenge":
                 challenge_ids = list(CHALLENGE_PRESETS)
                 current_preset = CHALLENGE_PRESETS[state["challenge_id"]]
-                challenge_prev_rect = pygame.Rect(main_rect.x + 70, main_rect.y + 172, 48, 44)
-                challenge_card_rect = pygame.Rect(main_rect.x + 132, main_rect.y + 166, main_rect.width - 264, 56)
-                challenge_next_rect = pygame.Rect(main_rect.right - 118, main_rect.y + 172, 48, 44)
+                challenge_prev_rect = pygame.Rect(main_rect.x + 70, main_rect.y + 188, 48, 42)
+                challenge_card_rect = pygame.Rect(main_rect.x + 132, main_rect.y + 180, main_rect.width - 264, 64)
+                challenge_next_rect = pygame.Rect(main_rect.right - 118, main_rect.y + 188, 48, 42)
                 draw_button(screen, small_font, challenge_prev_rect, "<", PALETTE["panel_soft"], PALETTE["panel_dark"], challenge_prev_rect.collidepoint(mouse_pos), PALETTE["text"])
                 draw_choice_card(screen, small_font, tiny_font, challenge_card_rect, current_preset["label"], current_preset["description"], active=True, hovered=challenge_card_rect.collidepoint(mouse_pos))
-                extra_text = f"{MATCH_PRESETS[current_preset['match_preset']]['label']} | {BOARD_LAYOUTS[current_preset['layout_id']]['label']} | {len(challenge_ids)} preset"
+                extra_text = f"{MATCH_PRESETS[current_preset['match_preset']]['label']} | {BOARD_LAYOUTS[current_preset['layout_id']]['label']} | {len(challenge_ids)} mẫu"
                 extra_surface = tiny_font.render(extra_text, True, PALETTE["muted"])
                 screen.blit(extra_surface, (challenge_card_rect.x + 16, challenge_card_rect.bottom - 18))
                 draw_button(screen, small_font, challenge_next_rect, ">", PALETTE["panel_soft"], PALETTE["panel_dark"], challenge_next_rect.collidepoint(mouse_pos), PALETTE["text"])
-                turn_top += 48
+                turn_top += 58
 
-            sequential_rect = pygame.Rect(main_rect.x + 68, turn_top, 360, 88)
-            manual_rect = pygame.Rect(main_rect.x + 470, turn_top, 360, 88)
+            sequential_rect = pygame.Rect(main_rect.x + 74, turn_top, 338, 94)
+            manual_rect = pygame.Rect(main_rect.right - 74 - 338, turn_top, 338, 94)
             draw_choice_card(
                 screen,
                 font,
                 small_font,
                 sequential_rect,
                 TURN_MODE_LABELS[SEQUENTIAL_TURN_MODE],
-                "Game tu quay vong nguoi choi theo thu tu.",
+                "Game tự quay vòng người chơi theo thứ tự.",
                 active=state["turn_mode"] == SEQUENTIAL_TURN_MODE,
                 hovered=sequential_rect.collidepoint(mouse_pos),
             )
@@ -657,32 +701,33 @@ def run_custom_setup_ui():
                 small_font,
                 manual_rect,
                 TURN_MODE_LABELS[MANUAL_TURN_MODE],
-                "Ban tu click ten nguoi choi truoc khi mo o.",
+                "Bạn tự chọn người sẽ mở ô kế tiếp.",
                 active=state["turn_mode"] == MANUAL_TURN_MODE,
                 muted=has_bots or state["mode_variant"] == "challenge",
                 hovered=manual_rect.collidepoint(mouse_pos),
             )
+            note_rect = None
             if has_bots or state["mode_variant"] == "challenge":
-                note_text = "Co bot: che do nay se tu dong chuyen ve Lan luot khi bat dau."
+                note_text = "Có bot: chế độ này sẽ tự động chuyển về Lần lượt khi bắt đầu."
                 if state["mode_variant"] == "challenge":
-                    note_text = "Challenge su dung luat quay luot co san de giu dung tinh chat thu thach."
-                note = tiny_font.render(note_text, True, PALETTE["crimson_dark"])
-                screen.blit(note, (manual_rect.x + 16, manual_rect.bottom - 24))
+                    note_text = "Thử thách sử dụng luật quay lượt có sẵn để giữ đúng tính chất thử thách."
+                note_rect = pygame.Rect(main_rect.x + 74, turn_top + 102, main_rect.width - 148, 28)
+                draw_hint_bar(screen, tiny_font, note_rect, note_text)
 
             ai_rects = []
+            ai_top = turn_top + 110 + (36 if note_rect is not None else 0)
             for index, (ai_level, ai_config) in enumerate(AI_LEVELS.items()):
-                rect = pygame.Rect(main_rect.x + 70 + index * 250, turn_top + 102, 220, 86)
+                rect = pygame.Rect(main_rect.x + 84 + index * 246, ai_top, 208, 84)
                 draw_choice_card(screen, font, small_font, rect, ai_config["label"], ai_config["description"], active=state["ai_level"] == ai_level, hovered=rect.collidepoint(mouse_pos))
                 ai_rects.append((ai_level, rect))
 
-            snapshot_rect = pygame.Rect(main_rect.x + 74, main_rect.bottom - 68, main_rect.width - 148, 46)
-            draw_setup_snapshot_card(screen, snapshot_rect, resolve_setup_snapshot(state), small_font, tiny_font, tiny_font)
-            shortcut_rect = pygame.Rect(main_rect.x + 74, snapshot_rect.y - 26, main_rect.width - 364, 24)
-            shortcut_text = "1-3 che do chinh | 4 solo bot | A-S luot | Z-X-C AI"
+            snapshot_top = ai_top + 112
+            shortcut_rect = pygame.Rect(main_rect.x + 74, snapshot_top, main_rect.width - 364, 28)
+            shortcut_text = "1-3 chế độ | 4 solo-bot | A-S lượt | Z-X-C AI"
             if state["mode_variant"] == "challenge":
-                shortcut_text = "1-3 che do chinh | 4 solo bot | A-S luot | Z-X-C AI | <- -> doi challenge"
+                shortcut_text = "1-3 chế độ | 4 solo-bot | A-S lượt | Z-X-C AI | ← → mẫu"
             draw_hint_bar(screen, tiny_font, shortcut_rect, shortcut_text)
-            solo_rect = pygame.Rect(shortcut_rect.right + 12, snapshot_rect.y - 28, 204, 28)
+            solo_rect = pygame.Rect(shortcut_rect.right + 12, snapshot_top, 220, 30)
             solo_active = state["mode_variant"] == "solo_bot"
             draw_panel(
                 screen,
@@ -692,9 +737,11 @@ def run_custom_setup_ui():
                 radius=14,
                 shadow=False,
             )
-            solo_label = tiny_font.render("4 | Solo vs Bot | doi gio", True, PALETTE["text"] if solo_active else PALETTE["muted"])
+            solo_label = tiny_font.render("4 | Solo đấu Bot | đổi ngay", True, PALETTE["text"] if solo_active else PALETTE["muted"])
             screen.blit(solo_label, (solo_rect.centerx - solo_label.get_width() // 2, solo_rect.centery - solo_label.get_height() // 2))
             mode_rects.append(("solo_bot", solo_rect))
+            snapshot_rect = pygame.Rect(main_rect.x + 74, shortcut_rect.bottom + 14, main_rect.width - 148, 60)
+            draw_setup_snapshot_card(screen, snapshot_rect, resolve_setup_snapshot(state), small_font, tiny_font, tiny_font)
 
             if mouse_clicked:
                 for mode_id, rect in mode_rects:
@@ -727,14 +774,27 @@ def run_custom_setup_ui():
                             state["ai_level"] = ai_level
                             play_sfx("ui_click", volume_multiplier=0.45)
             if state["mode_variant"] == "challenge":
-                info_surface = tiny_font.render("Challenge khoa layout, so o va bo effect theo tung preset. Doi preset bang < >.", True, PALETTE["crimson_dark"])
+                info_surface = tiny_font.render("Thử thách khóa layout, số ô và bộ effect theo mẫu hiện tại.", True, PALETTE["crimson_dark"])
                 screen.blit(info_surface, (main_rect.x + 72, shortcut_rect.y - 22))
 
-        back_label = "Thoat" if state["phase"] == "players" else "Tro lai"
+            rules_content_height = snapshot_rect.bottom - main_rect.y + 18
+            phase_max_scroll = max(0, rules_content_height - content_view_rect.height)
+            screen.set_clip(previous_clip)
+            if phase_max_scroll > 0:
+                draw_scrollbar(
+                    screen,
+                    pygame.Rect(content_view_rect.right - 10, content_view_rect.y + 8, 8, content_view_rect.height - 16),
+                    rules_content_height,
+                    content_view_rect.height,
+                    phase_scroll_y,
+                    accent_color=PALETTE["gold_dark"],
+                )
+
+        back_label = "Thoát" if state["phase"] == "players" else "Trở lại"
         next_label = {
-            "players": "Tiep",
-            "match": "Tiep",
-            "rules": "Bat dau",
+            "players": "Tiếp",
+            "match": "Tiếp",
+            "rules": "Bắt đầu",
         }[state["phase"]]
         draw_button(screen, small_font, back_rect, back_label, PALETTE["crimson"], PALETTE["crimson_dark"], back_rect.collidepoint(mouse_pos), PALETTE["text"])
         draw_button(screen, small_font, next_rect, next_label, PALETTE["mint"], PALETTE["mint_dark"], next_rect.collidepoint(mouse_pos), PALETTE["text"])
@@ -756,7 +816,7 @@ def run_custom_setup_ui():
                         state["phase"] = "match"
                         state["error"] = ""
                     else:
-                        state["error"] = "Hay nhap ten cho tat ca nguoi choi."
+                        state["error"] = "Hãy nhập tên cho tất cả người chơi."
                 elif state["phase"] == "match":
                     state["phase"] = "rules"
                     state["error"] = ""
@@ -767,6 +827,7 @@ def run_custom_setup_ui():
             error_surface = small_font.render(state["error"], True, PALETTE["crimson_dark"])
             screen.blit(error_surface, (panel_rect.x + 42, panel_rect.bottom - 46))
 
+        phase_scroll_y = max(0, min(phase_scroll_y, phase_max_scroll))
         pygame.display.flip()
         clock.tick(60)
 

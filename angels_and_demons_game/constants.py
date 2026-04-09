@@ -11,20 +11,20 @@ DEFAULT_SETTINGS = {
 
 MODE_VARIANTS = {
     "standard": {
-        "label": "Classic",
-        "description": "Tran dau mot van, giu nguyen luat co ban va tuy chinh cua ban.",
+        "label": "Cổ điển",
+        "description": "Trận đấu một ván, giữ nguyên luật cơ bản và tuỳ chỉnh của bạn.",
     },
     "solo_bot": {
-        "label": "Solo vs Bot",
-        "description": "Nguoi choi dau tien doi dau mot bot AI, hop de test nhanh va luyen tay.",
+        "label": "Solo đấu Bot",
+        "description": "Người chơi đầu tiên đối đầu một bot AI, hợp để test nhanh và luyện tay.",
     },
     "challenge": {
-        "label": "Challenge",
-        "description": "Ap bo luat thu thach co san, effect kho hon va bo cuc bat ngo hon.",
+        "label": "Thử thách",
+        "description": "Áp bộ luật thử thách có sẵn, effect khó hơn và bố cục bất ngờ hơn.",
     },
     "best_of_three": {
-        "label": "Best of 3",
-        "description": "Cho den khi co nguoi dat 2 van thang. Hop voi cac keo doi khang vui.",
+        "label": "Đấu 3 ván",
+        "description": "Chơi đến khi có người đạt 2 ván thắng. Hợp với các kèo đối kháng vui.",
     },
 }
 
@@ -32,24 +32,24 @@ MATCH_PRESETS = {
     "quick": {
         "label": "Nhanh",
         "num_boxes": 24,
-        "description": "Tran ngan, vao game nhanh va nhieu pha lat o lien tiep.",
+        "description": "Trận ngắn, vào game nhanh và nhiều pha lật ô liên tiếp.",
     },
     "classic": {
-        "label": "Co dien",
+        "label": "Cổ điển",
         "num_boxes": 50,
-        "description": "Dung kich co quen thuoc, can bang cho nhom ban.",
+        "description": "Dùng kích cỡ quen thuộc, cân bằng cho nhóm bạn.",
     },
     "marathon": {
-        "label": "Duong dai",
+        "label": "Đường dài",
         "num_boxes": 72,
-        "description": "Van dai hoi hon, hop voi custom va nhieu nguoi choi.",
+        "description": "Ván dài hơi hơn, hợp với custom và nhiều người chơi.",
     },
 }
 
 CHALLENGE_PRESETS = {
     "chaos_trial": {
         "label": "Chaos Trial",
-        "description": "Layout Chaos, effect dac biet mo khoa va nhieu pha dao chieu hon.",
+        "description": "Layout Chaos, effect đặc biệt mở khoá và nhiều pha đảo chiều hơn.",
         "match_preset": "quick",
         "layout_id": "chaos",
         "turn_mode": "sequential",
@@ -70,7 +70,7 @@ CHALLENGE_PRESETS = {
     },
     "halo_harvest": {
         "label": "Halo Harvest",
-        "description": "Tran dai vua, layout Duel va nhieu co hoi bat combo diem dep.",
+        "description": "Trận dài vừa, layout Duel và nhiều cơ hội bật combo điểm đẹp.",
         "match_preset": "classic",
         "layout_id": "duel",
         "turn_mode": "sequential",
@@ -91,7 +91,7 @@ CHALLENGE_PRESETS = {
     },
     "devils_gauntlet": {
         "label": "Devil's Gauntlet",
-        "description": "Pha cuop diem va tru diem dan dac, hop cho ke nao thich keo kho.",
+        "description": "Pha cướp điểm và trừ điểm dày đặc, hợp cho kẻ nào thích kèo khó.",
         "match_preset": "quick",
         "layout_id": "tower",
         "turn_mode": "sequential",
@@ -112,7 +112,7 @@ CHALLENGE_PRESETS = {
     },
     "mind_maze": {
         "label": "Mind Maze",
-        "description": "Tien tri, Keo bua bao va doi menh xuat hien nhieu hon de danh lua doi thu.",
+        "description": "Tiên tri, Kéo búa bao và đổi mệnh xuất hiện nhiều hơn để đánh lừa đối thủ.",
         "match_preset": "classic",
         "layout_id": "chaos",
         "turn_mode": "sequential",
@@ -135,51 +135,51 @@ CHALLENGE_PRESETS = {
 
 BOARD_LAYOUTS = {
     "classic": {
-        "label": "Classic",
+        "label": "Cổ điển",
         "columns": 10,
         "box_size": 72,
         "gap": 12,
-        "description": "Luoi rong, quen mat va can doi.",
+        "description": "Lưới rộng, quen mắt và cân đối.",
     },
     "duel": {
         "label": "Duel",
         "columns": 8,
         "box_size": 78,
         "gap": 14,
-        "description": "O to hon, de tap trung vao tung pha mo o.",
+        "description": "Ô to hơn, dễ tập trung vào từng pha mở ô.",
     },
     "tower": {
         "label": "Tower",
         "columns": 6,
         "box_size": 84,
         "gap": 16,
-        "description": "Ban cao hon, cam giac nhu leo tang.",
+        "description": "Bàn cao hơn, cảm giác như leo tầng.",
     },
     "chaos": {
         "label": "Chaos",
         "columns": 7,
         "box_size": 76,
         "gap": 14,
-        "description": "Can doi giua do dai va do rong, nhin la thay vui.",
+        "description": "Cân đối giữa độ dài và độ rộng, nhìn là thấy vui.",
     },
 }
 
 AI_LEVELS = {
     "easy": {
-        "label": "De",
-        "description": "Bot hay mo ngau nhien, thinh thoang moi tranh bay.",
+        "label": "Dễ",
+        "description": "Bot hay mở ngẫu nhiên, thỉnh thoảng mới tránh bẫy.",
         "think_delay_ms": 760,
         "preview_bias": 0.35,
     },
     "normal": {
         "label": "Vua",
-        "description": "Bot uu tien o da duoc preview va tranh effect xau ro rang.",
+        "description": "Bot ưu tiên ô đã được preview và tránh effect xấu rõ ràng.",
         "think_delay_ms": 620,
         "preview_bias": 0.7,
     },
     "smart": {
-        "label": "Lau ca",
-        "description": "Bot rat tham doi voi o ngon va tiet che truoc biet xau.",
+        "label": "Lão cá",
+        "description": "Bot rất tham đối với ô ngon và tiết chế trước biết xấu.",
         "think_delay_ms": 460,
         "preview_bias": 1.0,
     },
@@ -202,39 +202,39 @@ EFFECT_AI_SCORES = {
 
 ACHIEVEMENT_DEFINITIONS = {
     "first_match": {
-        "title": "Tran dau tien",
-        "description": "Hoan thanh mot van choi bat ky.",
+        "title": "Trận đầu tiên",
+        "description": "Hoàn thành một ván chơi bất kỳ.",
     },
     "angel_favored": {
-        "title": "Duoc do ho",
-        "description": "Mo hieu ung Thien than it nhat 3 lan trong mot tran.",
+        "title": "Được độ hộ",
+        "description": "Mở hiệu ứng Thiên thần ít nhất 3 lần trong một trận.",
     },
     "loot_king": {
-        "title": "Vua cuop diem",
-        "description": "Cuop tong cong it nhat 60 diem trong mot tran.",
+        "title": "Vua cướp điểm",
+        "description": "Cướp tổng cộng ít nhất 60 điểm trong một trận.",
     },
     "lucky_burst": {
-        "title": "Bung no diem",
-        "description": "Co mot lan tang it nhat 50 diem trong mot turn.",
+        "title": "Bùng nổ điểm",
+        "description": "Có một lần tăng ít nhất 50 điểm trong một turn.",
     },
     "marathon_clear": {
-        "title": "Duong dai",
-        "description": "Hoan thanh mot tran tu 70 o tro len.",
+        "title": "Đường dài",
+        "description": "Hoàn thành một trận từ 70 ô trở lên.",
     },
     "bot_buster": {
-        "title": "Ha guc AI",
-        "description": "Danh bai bot o muc Lau ca.",
+        "title": "Hạ gục AI",
+        "description": "Đánh bại bot ở mức Lão cá.",
     },
     "effect_collector": {
-        "title": "Nha suu tam",
-        "description": "Trong su nghiep da mo du 8 hieu ung mac dinh.",
+        "title": "Nhà sưu tầm",
+        "description": "Trong sự nghiệp đã mở đủ 8 hiệu ứng mặc định.",
     },
     "challenge_cleared": {
-        "title": "Pha dao thu thach",
-        "description": "Hoan thanh va chien thang mot van Challenge.",
+        "title": "Phá đảo thử thách",
+        "description": "Hoàn thành và chiến thắng một ván Thử thách.",
     },
     "series_champion": {
-        "title": "Vo dich series",
-        "description": "Thang tron mot keo Best of 3.",
+        "title": "Vô địch series",
+        "description": "Thắng trọn một kèo đấu 3 ván.",
     },
 }

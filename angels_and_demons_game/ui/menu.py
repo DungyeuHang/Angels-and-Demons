@@ -137,12 +137,12 @@ def run_menu_ui():
     reduce_motion = settings.get("reduce_motion", False)
 
     options = [
-        ("Choi mac dinh", "Vao game nhanh voi preset tran, layout moi va flow hop nguoi voi nhau.", "1"),
-        ("Che do custom", "Tu tao luat choi, ti le hieu ung, bot va map rieng.", "2"),
-        ("Thong ke", "Xem thanh tuu, top hieu ung, career score va bang vang.", "3"),
-        ("Xem lich su", "Nhin lai nguoi thang, mode, layout va thanh tuu moi.", "4"),
-        ("Cai dat", "Bat tat nhac, SFX, fullscreen va dieu chinh volume.", "5"),
-        ("Thoat", "Dong game sau khi thuong hai xong.", "6"),
+        ("Chơi mặc định", "Vào game nhanh với preset trận, layout mới và flow hợp người với nhau.", "1"),
+        ("Chế độ custom", "Tự tạo luật chơi, tỉ lệ hiệu ứng, bot và map riêng.", "2"),
+        ("Thống kê", "Xem thành tựu, top hiệu ứng, career score và bảng vàng.", "3"),
+        ("Xem lịch sử", "Nhìn lại người thắng, mode, layout và thành tựu mới.", "4"),
+        ("Cài đặt", "Bật tắt nhạc, SFX, fullscreen và điều chỉnh volume.", "5"),
+        ("Thoát", "Đóng game sau khi thương hại xong.", "6"),
     ]
     selected = 0
 
@@ -173,18 +173,18 @@ def run_menu_ui():
             screen.blit(emblem_surface, (hero_rect.centerx - emblem_surface.get_width() // 2, hero_rect.y + 8))
 
         draw_title(screen, title_font, "Angels and Demons", (hero_rect.centerx, hero_rect.y + 62), PALETTE["text"])
-        draw_subtitle(screen, small_font, "Mo o, nhan diem, xoay chieu tran dau va nghich effect moi vui hon.", (hero_rect.centerx, hero_rect.y + 96))
-        draw_subtitle(screen, tiny_font, "Lan luot hoac custom, co nhat ky su kien, preview va choi lai ngay.", (hero_rect.centerx, hero_rect.y + 118))
+        draw_subtitle(screen, small_font, "Mở ô, nhận điểm, xoay chiều trận đấu và nghịch effect mới vui hơn.", (hero_rect.centerx, hero_rect.y + 96))
+        draw_subtitle(screen, tiny_font, "Lần lượt hoặc custom, có nhật ký sự kiện, preview và chơi lại ngay.", (hero_rect.centerx, hero_rect.y + 118))
 
         chip_y = hero_rect.y + 130
-        draw_chip(screen, tiny_font, pygame.Rect(hero_rect.centerx - 190, chip_y, 110, 28), "Board co san", (255, 236, 225), PALETTE["peach"])
-        draw_chip(screen, tiny_font, pygame.Rect(hero_rect.centerx - 56, chip_y, 108, 28), "Co preview", (232, 241, 255), PALETTE["azure_dark"])
+        draw_chip(screen, tiny_font, pygame.Rect(hero_rect.centerx - 190, chip_y, 110, 28), "Board có sẵn", (255, 236, 225), PALETTE["peach"])
+        draw_chip(screen, tiny_font, pygame.Rect(hero_rect.centerx - 56, chip_y, 108, 28), "Có preview", (232, 241, 255), PALETTE["azure_dark"])
         draw_chip(screen, tiny_font, pygame.Rect(hero_rect.centerx + 74, chip_y, 126, 28), "Replay & history", (231, 245, 236), PALETTE["mint_dark"])
         book_rect = pygame.Rect(hero_rect.right - 174, hero_rect.bottom - 42, 138, 28)
-        draw_chip(screen, tiny_font, book_rect, "B - So tay", (240, 234, 248), PALETTE["lilac"])
+        draw_chip(screen, tiny_font, book_rect, "B - Sổ tay", (240, 234, 248), PALETTE["lilac"])
 
         section_title_y = hero_rect.bottom + 18
-        section_label = small_font.render("Chon mot cach de bat dau", True, PALETTE["muted"])
+        section_label = small_font.render("Chọn một cách để bắt đầu", True, PALETTE["muted"])
         screen.blit(section_label, (main_rect.x + 42, section_title_y))
         draw_star(screen, (main_rect.x + 26, section_title_y + 10), 7, PALETTE["gold"])
         draw_star(screen, (main_rect.right - 28, section_title_y + 8), 6, PALETTE["lilac"])
@@ -218,7 +218,7 @@ def run_menu_ui():
 
         footer_copy = clamp_text(
             tiny_font,
-            "Tip: mui ten + Enter van hoat dong, nhan 1-6 de mo nhanh va B de mo so tay effect.",
+            "Tip: mũi tên + Enter vẫn hoạt động, nhấn 1-6 để mở nhanh và B để mở sổ tay effect.",
             main_rect.width - 92,
         )
         footer_text = tiny_font.render(footer_copy, True, PALETTE["muted"])

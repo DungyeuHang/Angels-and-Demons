@@ -2,8 +2,8 @@ SEQUENTIAL_TURN_MODE = "sequential"
 MANUAL_TURN_MODE = "manual"
 
 TURN_MODE_LABELS = {
-    SEQUENTIAL_TURN_MODE: "Lan luot",
-    MANUAL_TURN_MODE: "Tu chon nguoi choi",
+    SEQUENTIAL_TURN_MODE: "Lần lượt",
+    MANUAL_TURN_MODE: "Tự chọn người chơi",
 }
 
 
