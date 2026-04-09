@@ -1,6 +1,9 @@
 class Player:
-    def __init__(self, name):
+    def __init__(self, name, is_bot=False, ai_level="normal", avatar_variant=None):
         self.name = name
+        self.is_bot = bool(is_bot)
+        self.ai_level = str(ai_level or "normal")
+        self.avatar_variant = avatar_variant or ("demon" if self.is_bot else "angel")
         self.score = 0
 
         self.turns_taken = 0

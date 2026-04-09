@@ -3,10 +3,21 @@ import sys
 
 import pygame
 
+from config import MENU_WINDOW_SIZE
+from config import create_display
 from ui.custom_mode_setup import run_custom_mode_ui
 from ui.custom_setup import run_default_setup_ui
+from ui.audio import play_sfx
+from ui.audio import play_music
+from ui.audio import sync_audio_settings
+from ui.brand_assets import apply_window_icon
+from ui.brand_assets import get_surface
+from ui.effect_book_screen import show_effect_book_screen
 from ui.game_screen import run_game_ui
 from ui.histories_screen import show_history_screen
+from ui.settings_screen import show_settings_screen
+from ui.stats_screen import show_stats_screen
+from models.settings import load_settings
 from ui.theme import PALETTE
 from ui.theme import draw_background
 from ui.theme import draw_cloud
@@ -28,18 +39,30 @@ else:
 
 def activate_option(index, screen, font):
     if index == 0:
-        players, num_boxes, dist_mode, custom_weights, turn_mode = run_default_setup_ui()
+        players, num_boxes, dist_mode, custom_weights, turn_mode, session_options = run_default_setup_ui()
         if players:
-            run_game_ui(players, num_boxes, dist_mode, custom_weights, turn_mode)
+            run_game_ui(players, num_boxes, dist_mode, custom_weights, turn_mode, session_options=session_options)
     elif index == 1:
-        players, num_boxes, dist_mode, custom_weights, turn_mode = run_custom_mode_ui()
+        players, num_boxes, dist_mode, custom_weights, turn_mode, session_options = run_custom_mode_ui()
         if players:
-            run_game_ui(players, num_boxes, dist_mode, custom_weights, turn_mode)
+            run_game_ui(players, num_boxes, dist_mode, custom_weights, turn_mode, session_options=session_options)
     elif index == 2:
-        show_history_screen(screen, font)
+        play_music("history", force_restart=True)
+        show_stats_screen(screen, font)
     elif index == 3:
-        return False
-    return True
+        play_music("history", force_restart=True)
+        show_history_screen(screen, font)
+    elif index == 4:
+        show_settings_screen()
+    elif index == 5:
+        return False, screen
+
+    settings = load_settings()
+    sync_audio_settings(settings)
+    screen = create_display(MENU_WINDOW_SIZE, "Menu", fullscreen=settings.get("fullscreen", False))
+    apply_window_icon()
+    play_music("menu", force_restart=True)
+    return True, screen
 
 
 def draw_chip(surface, font, rect, label, fill_color, border_color):
@@ -74,11 +97,11 @@ def draw_menu_option(surface, title_font, detail_font, rect, title, detail, fill
     draw_panel(surface, rect, fill_color=fill_color, border_color=border_color, radius=26, shadow=True)
 
     title_surface = title_font.render(title, True, PALETTE["text"])
-    title_y = rect.y + 11
+    title_y = rect.y + 8
     surface.blit(title_surface, (rect.centerx - title_surface.get_width() // 2, title_y))
 
     detail_lines = wrap_text(detail_font, detail, rect.width - 48)[:2]
-    detail_y = rect.y + 39
+    detail_y = rect.y + 30
     for line in detail_lines:
         line_surface = detail_font.render(line, True, PALETTE["muted"])
         surface.blit(line_surface, (rect.x + 24, detail_y))
@@ -87,8 +110,11 @@ def draw_menu_option(surface, title_font, detail_font, rect, title, detail, fill
 
 def run_menu_ui():
     pygame.init()
-    screen = pygame.display.set_mode((940, 680))
-    pygame.display.set_caption("Angels and Demons - Menu")
+    settings = load_settings()
+    sync_audio_settings(settings)
+    screen = create_display(MENU_WINDOW_SIZE, "Menu", fullscreen=settings.get("fullscreen", False))
+    apply_window_icon()
+    play_music("menu", force_restart=True)
 
     font_path = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
     title_font = pygame.font.Font(font_path, 42)
@@ -96,11 +122,16 @@ def run_menu_ui():
     small_font = pygame.font.Font(font_path, 15)
     tiny_font = pygame.font.Font(font_path, 12)
     clock = pygame.time.Clock()
+    emblem_surface = get_surface("brand_emblem", (56, 56))
+    angel_badge = get_surface("angel_badge", (32, 32))
+    demon_badge = get_surface("demon_badge", (32, 32))
 
     options = [
-        ("Choi mac dinh", "Vao game nhanh voi bo hieu ung co san."),
-        ("Che do custom", "Tu tao luat choi va ti le hieu ung."),
-        ("Xem lich su", "Nhin lai nhung van choi da luu."),
+        ("Choi mac dinh", "Vao game nhanh voi preset tran, layout moi va bot AI."),
+        ("Che do custom", "Tu tao luat choi, ti le hieu ung, bot va map rieng."),
+        ("Thong ke", "Xem thanh tuu, top hieu ung, career score va bang vang."),
+        ("Xem lich su", "Nhin lai nguoi thang, mode, layout va thanh tuu moi."),
+        ("Cai dat", "Bat tat nhac, SFX, fullscreen va dieu chinh volume."),
         ("Thoat", "Dong game sau khi thuong hai xong."),
     ]
     selected = 0
@@ -117,38 +148,46 @@ def run_menu_ui():
         main_rect = pygame.Rect(72, 42, screen.get_width() - 144, screen.get_height() - 84)
         draw_panel(screen, main_rect, fill_color=(255, 247, 240), border_color=PALETTE["gold_dark"], radius=34)
 
-        hero_rect = pygame.Rect(main_rect.x + 34, main_rect.y + 28, main_rect.width - 68, 184)
+        hero_rect = pygame.Rect(main_rect.x + 34, main_rect.y + 24, main_rect.width - 68, 162)
         draw_panel(screen, hero_rect, fill_color=(252, 241, 231), border_color=PALETTE["lilac"], radius=30, shadow=False)
 
         draw_mascot(screen, (hero_rect.x + 92, hero_rect.centery + 18), "angel", tick, 0.72)
         draw_mascot(screen, (hero_rect.right - 92, hero_rect.centery + 22), "demon", tick + 140, 0.7)
         draw_star(screen, (hero_rect.x + 162, hero_rect.y + 36), 10, PALETTE["gold"])
         draw_star(screen, (hero_rect.right - 162, hero_rect.y + 44), 8, PALETTE["crimson"])
+        if emblem_surface is not None:
+            screen.blit(emblem_surface, (hero_rect.centerx - emblem_surface.get_width() // 2, hero_rect.y + 8))
 
-        draw_title(screen, title_font, "Angels and Demons", (hero_rect.centerx, hero_rect.y + 52), PALETTE["text"])
-        draw_subtitle(screen, small_font, "Mo o, nhan diem, pha game theo cach dang yeu hon mot chut.", (hero_rect.centerx, hero_rect.y + 92))
-        draw_subtitle(screen, tiny_font, "Lan luot hoac custom, nghich vui nhung van de nhin va de choi.", (hero_rect.centerx, hero_rect.y + 118))
+        draw_title(screen, title_font, "Angels and Demons", (hero_rect.centerx, hero_rect.y + 62), PALETTE["text"])
+        draw_subtitle(screen, small_font, "Mo o, nhan diem, xoay chieu tran dau va nghich effect moi vui hon.", (hero_rect.centerx, hero_rect.y + 96))
+        draw_subtitle(screen, tiny_font, "Lan luot hoac custom, co nhat ky su kien, preview va choi lai ngay.", (hero_rect.centerx, hero_rect.y + 118))
 
-        chip_y = hero_rect.y + 142
-        draw_chip(screen, tiny_font, pygame.Rect(hero_rect.centerx - 170, chip_y, 96, 28), "De thuong", (255, 236, 225), PALETTE["peach"])
-        draw_chip(screen, tiny_font, pygame.Rect(hero_rect.centerx - 54, chip_y, 108, 28), "Co animation", (232, 241, 255), PALETTE["azure_dark"])
-        draw_chip(screen, tiny_font, pygame.Rect(hero_rect.centerx + 74, chip_y, 126, 28), "Custom vui hon", (231, 245, 236), PALETTE["mint_dark"])
+        chip_y = hero_rect.y + 130
+        draw_chip(screen, tiny_font, pygame.Rect(hero_rect.centerx - 190, chip_y, 110, 28), "Board co san", (255, 236, 225), PALETTE["peach"])
+        draw_chip(screen, tiny_font, pygame.Rect(hero_rect.centerx - 56, chip_y, 108, 28), "Co preview", (232, 241, 255), PALETTE["azure_dark"])
+        draw_chip(screen, tiny_font, pygame.Rect(hero_rect.centerx + 74, chip_y, 126, 28), "Replay & history", (231, 245, 236), PALETTE["mint_dark"])
+        book_rect = pygame.Rect(hero_rect.right - 174, hero_rect.bottom - 42, 138, 28)
+        draw_chip(screen, tiny_font, book_rect, "B - So tay", (240, 234, 248), PALETTE["lilac"])
 
         section_title_y = hero_rect.bottom + 18
         section_label = small_font.render("Chon mot cach de bat dau", True, PALETTE["muted"])
         screen.blit(section_label, (main_rect.x + 42, section_title_y))
         draw_star(screen, (main_rect.x + 26, section_title_y + 10), 7, PALETTE["gold"])
         draw_star(screen, (main_rect.right - 28, section_title_y + 8), 6, PALETTE["lilac"])
+        if angel_badge is not None:
+            screen.blit(angel_badge, (main_rect.right - 118, section_title_y - 10))
+        if demon_badge is not None:
+            screen.blit(demon_badge, (main_rect.right - 78, section_title_y - 10))
         draw_cloud(screen, (main_rect.right - 90, main_rect.bottom - 36), 0.45, (255, 247, 243))
 
         option_rects = []
         for index, (label, detail) in enumerate(options):
-            rect = pygame.Rect(main_rect.x + 44, section_title_y + 24 + index * 74, main_rect.width - 88, 64)
+            rect = pygame.Rect(main_rect.x + 44, section_title_y + 20 + index * 58, main_rect.width - 88, 54)
             hovered = rect.collidepoint(mouse_pos)
             if hovered:
                 selected = index
 
-            if index == 3:
+            if index == len(options) - 1:
                 base_color = (245, 213, 219)
                 accent_color = PALETTE["crimson_dark"]
             elif index == selected:
@@ -161,7 +200,7 @@ def run_menu_ui():
             draw_menu_option(screen, font, tiny_font, rect, label, detail, base_color, accent_color, hovered or index == selected)
             option_rects.append(rect)
 
-        footer_text = tiny_font.render("Tip: phim mui ten + Enter van hoat dong nhe.", True, PALETTE["muted"])
+        footer_text = tiny_font.render("Tip: phim mui ten + Enter van hoat dong, nhan B de mo so tay effect.", True, PALETTE["muted"])
         screen.blit(footer_text, (main_rect.x + 42, main_rect.bottom - 20))
 
         pygame.display.flip()
@@ -171,17 +210,32 @@ def run_menu_ui():
                 return
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_UP:
+                    play_sfx("ui_click", volume_multiplier=0.35)
                     selected = (selected - 1) % len(options)
                 elif event.key == pygame.K_DOWN:
+                    play_sfx("ui_click", volume_multiplier=0.35)
                     selected = (selected + 1) % len(options)
                 elif event.key == pygame.K_RETURN:
-                    if not activate_option(selected, screen, font):
+                    play_sfx("ui_click", volume_multiplier=0.42)
+                    keep_running, screen = activate_option(selected, screen, font)
+                    if not keep_running:
+                        return
+                elif event.key == pygame.K_b:
+                    play_sfx("ui_click", volume_multiplier=0.36)
+                    if show_effect_book_screen(screen) == "quit":
                         return
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if book_rect.collidepoint(event.pos):
+                    play_sfx("ui_click", volume_multiplier=0.36)
+                    if show_effect_book_screen(screen) == "quit":
+                        return
+                    continue
                 for index, rect in enumerate(option_rects):
                     if rect.collidepoint(event.pos):
                         selected = index
-                        if not activate_option(index, screen, font):
+                        play_sfx("ui_click", volume_multiplier=0.42)
+                        keep_running, screen = activate_option(index, screen, font)
+                        if not keep_running:
                             return
 
         clock.tick(60)

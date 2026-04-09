@@ -3,6 +3,11 @@ import sys
 
 import pygame
 
+from config import CUSTOM_WINDOW_SIZE
+from config import create_display
+from constants import AI_LEVELS
+from constants import BOARD_LAYOUTS
+from constants import MODE_VARIANTS
 from mechanics.effects import get_all_effects
 from mechanics.randomizer import build_default_weight_map
 from mechanics.randomizer import sanitize_weights
@@ -13,10 +18,13 @@ from models.custom_modes import delete_custom_mode
 from models.custom_modes import load_custom_modes
 from models.custom_modes import save_custom_mode
 from models.player import Player
+from models.settings import load_settings
 from models.turn_modes import MANUAL_TURN_MODE
 from models.turn_modes import SEQUENTIAL_TURN_MODE
 from models.turn_modes import TURN_MODE_LABELS
 from models.turn_modes import normalize_turn_mode
+from ui.audio import play_sfx
+from ui.brand_assets import apply_window_icon
 from ui.theme import PALETTE
 from ui.theme import draw_background
 from ui.theme import draw_panel
@@ -78,8 +86,64 @@ def resize_names(names, count):
     return resized
 
 
-def make_players(names):
-    return [Player(name.strip()) for name in names]
+def resize_flags(flags, count):
+    resized = [bool(flag) for flag in list(flags[: max(1, count)])]
+    while len(resized) < max(1, count):
+        resized.append(False)
+    return resized
+
+
+def make_players(names, bot_flags=None, ai_level="normal"):
+    bot_flags = resize_flags(bot_flags or [], len(names))
+    players = []
+    for index, name in enumerate(names):
+        players.append(
+            Player(
+                name.strip(),
+                is_bot=bot_flags[index],
+                ai_level=ai_level,
+                avatar_variant="demon" if bot_flags[index] else "angel",
+            )
+        )
+    return players
+
+
+def get_first_human_name(names, bot_flags):
+    bot_flags = resize_flags(bot_flags or [], len(names))
+    for index, name in enumerate(names):
+        if not bot_flags[index]:
+            return str(name).strip() or placeholder_name(index)
+    if names:
+        return str(names[0]).strip() or placeholder_name(0)
+    return placeholder_name(0)
+
+
+def build_mode_session_options(mode_data):
+    mode_variant = str(mode_data.get("mode_variant", "standard") or "standard")
+    session_options = {
+        "layout_id": str(mode_data.get("layout_id", "classic")),
+        "match_preset": "custom",
+        "mode_variant": mode_variant,
+    }
+    if mode_variant == "best_of_three":
+        session_options["series_target_wins"] = 2
+    elif mode_variant == "challenge":
+        session_options["challenge_id"] = str(mode_data.get("challenge_id", "custom_challenge"))
+        session_options["challenge_title"] = str(mode_data.get("challenge_title", mode_data.get("name", "Custom Challenge")))
+    return session_options
+
+
+def build_players_for_mode(mode_data, bot_flags):
+    mode_variant = str(mode_data.get("mode_variant", "standard") or "standard")
+    names = mode_data["player_names"]
+    ai_level = mode_data["ai_level"]
+    if mode_variant == "solo_bot":
+        human_name = get_first_human_name(names, bot_flags)
+        return [
+            Player(human_name, is_bot=False, ai_level=ai_level, avatar_variant="angel"),
+            Player("AI Doi thu", is_bot=True, ai_level=ai_level, avatar_variant="demon"),
+        ]
+    return make_players(names, bot_flags, ai_level)
 
 
 def make_state(mode=None):
@@ -89,21 +153,36 @@ def make_state(mode=None):
             "mode_name": "",
             "num_players_text": "2",
             "player_names": resize_names([], 2),
+            "player_bot_flags": resize_flags([], 2),
             "num_boxes_text": "50",
             "turn_mode": SEQUENTIAL_TURN_MODE,
+            "layout_id": "classic",
+            "ai_level": "normal",
+            "mode_variant": "standard",
             "weights": build_default_weight_map(include_custom=True),
         }
 
-    names = [str(name) for name in mode.get("player_names", []) if str(name).strip()]
+    player_specs = mode.get("player_specs")
+    if isinstance(player_specs, list) and player_specs:
+        names = [str(spec.get("name", "")).strip() or placeholder_name(index) for index, spec in enumerate(player_specs)]
+        bot_flags = [bool(spec.get("is_bot", False)) for spec in player_specs]
+    else:
+        names = [str(name) for name in mode.get("player_names", []) if str(name).strip()]
+        bot_flags = resize_flags([], len(names) or 2)
     if not names:
         names = resize_names([], 2)
+        bot_flags = resize_flags([], 2)
     return {
         "original_name": str(mode.get("name", "")).strip(),
         "mode_name": str(mode.get("name", "")).strip(),
         "num_players_text": str(len(names)),
         "player_names": names,
+        "player_bot_flags": resize_flags(bot_flags, len(names)),
         "num_boxes_text": str(mode.get("num_boxes", 50)),
         "turn_mode": normalize_turn_mode(mode.get("turn_mode")),
+        "layout_id": str(mode.get("layout_id", "classic")),
+        "ai_level": str(mode.get("ai_level", "normal")),
+        "mode_variant": str(mode.get("mode_variant", "standard") or "standard"),
         "weights": sanitize_weights(mode.get("weights"), include_custom=True),
     }
 
@@ -148,11 +227,24 @@ def name_exists(mode_name, original_name):
 
 
 def build_mode_data(state):
+    mode_variant = str(state.get("mode_variant", "standard") or "standard")
     return {
         "name": state["mode_name"].strip(),
         "player_names": [name.strip() for name in state["player_names"]],
+        "player_specs": [
+            {
+                "name": name.strip(),
+                "is_bot": bool(state["player_bot_flags"][index]),
+            }
+            for index, name in enumerate(state["player_names"])
+        ],
         "num_boxes": int(state["num_boxes_text"]),
         "turn_mode": normalize_turn_mode(state.get("turn_mode")),
+        "layout_id": str(state.get("layout_id", "classic")),
+        "ai_level": str(state.get("ai_level", "normal")),
+        "mode_variant": mode_variant,
+        "challenge_id": "custom_challenge" if mode_variant == "challenge" else "",
+        "challenge_title": state["mode_name"].strip() if mode_variant == "challenge" else "",
         "weights": sanitize_weights(state["weights"], include_custom=True),
     }
 
@@ -189,6 +281,8 @@ def focus_effect_editor_field(effect_editor, field_name):
 
 
 def build_effect_description(effect):
+    if effect.get("custom_only"):
+        return "Hieu ung dac biet | chi co trong custom"
     if effect.get("is_custom"):
         operation_label = CUSTOM_EFFECT_OPERATION_LABELS.get(effect.get("operation"), effect.get("operation", "custom"))
         value = float(effect.get("value", 0))
@@ -200,8 +294,9 @@ def build_effect_description(effect):
 def run_custom_mode_ui():
     pygame.init()
     pygame.key.start_text_input()
-    screen = pygame.display.set_mode((1200, 760), pygame.RESIZABLE)
-    pygame.display.set_caption("Che do custom")
+    settings = load_settings()
+    screen = create_display(CUSTOM_WINDOW_SIZE, "Che do custom", fullscreen=settings.get("fullscreen", False))
+    apply_window_icon()
     font = get_font(20)
     small_font = get_font(16)
     clock = pygame.time.Clock()
@@ -237,7 +332,7 @@ def run_custom_mode_ui():
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                return None, None, None, None, None
+                return None, None, None, None, None, None
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     mouse_clicked = True
@@ -248,7 +343,7 @@ def run_custom_mode_ui():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     if phase == "list":
-                        return None, None, None, None, None
+                        return None, None, None, None, None, None
                     phase = {
                         "save": "weights",
                         "weights": "turn_mode",
@@ -274,6 +369,7 @@ def run_custom_mode_ui():
                 elif phase == "players":
                     if event.key == pygame.K_RETURN and valid_number(state["num_players_text"]):
                         state["player_names"] = resize_names(state["player_names"], int(state["num_players_text"]))
+                        state["player_bot_flags"] = resize_flags(state["player_bot_flags"], int(state["num_players_text"]))
                         editing = focus_player_field(state, 0)
                         phase = "names"
                         refresh_text_input()
@@ -390,7 +486,9 @@ def run_custom_mode_ui():
                         pygame.draw.rect(screen, (0, 0, 0), rect, 2, border_radius=10)
                         names = preset.get("player_names", [])
                         turn_mode_label = TURN_MODE_LABELS[normalize_turn_mode(preset.get("turn_mode"))]
-                        summary = f"{len(names)} players | {preset.get('num_boxes', 0)} boxes | {turn_mode_label}"
+                        layout_label = BOARD_LAYOUTS.get(str(preset.get("layout_id", "classic")), BOARD_LAYOUTS["classic"])["label"]
+                        mode_label = MODE_VARIANTS.get(str(preset.get("mode_variant", "standard")), MODE_VARIANTS["standard"])["label"]
+                        summary = f"{mode_label} | {len(names)} players | {preset.get('num_boxes', 0)} boxes | {turn_mode_label} | {layout_label}"
                         screen.blit(font.render(str(preset.get("name", "Preset")), True, (0, 0, 0)), (rect.x + 20, rect.y + 14))
                         screen.blit(small_font.render(summary, True, (90, 90, 90)), (rect.x + 20, rect.y + 48))
                         screen.blit(small_font.render(", ".join(names[:5]), True, (90, 90, 90)), (rect.x + 20, rect.y + 74))
@@ -413,19 +511,32 @@ def run_custom_mode_ui():
                     scroll_y = 0
                     refresh_text_input()
                 elif back_rect.collidepoint(mouse_pos):
-                    return None, None, None, None, None
+                    return None, None, None, None, None, None
                 else:
                     for preset, rect in play_buttons:
                         if rect.collidepoint(mouse_pos):
-                            names = [str(name).strip() for name in preset.get("player_names", []) if str(name).strip()]
+                            player_specs = preset.get("player_specs")
+                            if isinstance(player_specs, list) and player_specs:
+                                names = [str(spec.get("name", "")).strip() for spec in player_specs if str(spec.get("name", "")).strip()]
+                                bot_flags = [bool(spec.get("is_bot", False)) for spec in player_specs][: len(names)]
+                            else:
+                                names = [str(name).strip() for name in preset.get("player_names", []) if str(name).strip()]
+                                bot_flags = resize_flags([], len(names))
                             num_boxes = int(preset.get("num_boxes", 0))
                             if names and num_boxes > 0:
+                                turn_mode = normalize_turn_mode(preset.get("turn_mode"))
+                                if (any(bot_flags) or str(preset.get("mode_variant", "standard")) == "solo_bot") and turn_mode == MANUAL_TURN_MODE:
+                                    turn_mode = SEQUENTIAL_TURN_MODE
+                                mode_data = dict(preset)
+                                mode_data["player_names"] = names
+                                mode_data["ai_level"] = str(preset.get("ai_level", "normal"))
                                 return (
-                                    make_players(names),
+                                    build_players_for_mode(mode_data, bot_flags),
                                     num_boxes,
                                     "custom",
                                     sanitize_weights(preset.get("weights"), include_custom=True),
-                                    normalize_turn_mode(preset.get("turn_mode")),
+                                    turn_mode,
+                                    build_mode_session_options(mode_data),
                                 )
                     for preset, rect in edit_buttons:
                         if rect.collidepoint(mouse_pos):
@@ -463,6 +574,7 @@ def run_custom_mode_ui():
                 if next_rect.collidepoint(mouse_pos):
                     if valid_number(state["num_players_text"]):
                         state["player_names"] = resize_names(state["player_names"], int(state["num_players_text"]))
+                        state["player_bot_flags"] = resize_flags(state["player_bot_flags"], int(state["num_players_text"]))
                         editing, error, phase = focus_player_field(state, 0), "", "names"
                     else:
                         error = "So nguoi choi khong hop le."
@@ -482,10 +594,15 @@ def run_custom_mode_ui():
             for index, name in enumerate(state["player_names"]):
                 x = 60 + (index % 4) * 238
                 y = 160 + (index // 4) * 60
-                rect = pygame.Rect(x, y, 220, 42)
+                rect = pygame.Rect(x, y, 156, 42)
+                toggle_rect = pygame.Rect(x + 164, y, 56, 42)
                 draw_box(screen, font, rect, name, index == editing, index == editing and caret_visible)
-                name_rects.append(rect)
-            hint_text = small_font.render("Tab de doi o, click de chon nhanh.", True, (80, 80, 80))
+                toggle_label = "BOT" if state["player_bot_flags"][index] else "Nguoi"
+                toggle_fill = (244, 217, 223) if state["player_bot_flags"][index] else (225, 241, 230)
+                toggle_border = PALETTE["crimson_dark"] if state["player_bot_flags"][index] else PALETTE["mint_dark"]
+                draw_button(screen, small_font, toggle_rect, toggle_label, toggle_fill, (0, 0, 0), toggle_border)
+                name_rects.append((index, rect, toggle_rect))
+            hint_text = small_font.render("Tab de doi o, click de chon nhanh. Moi bot se dung cung AI level.", True, (80, 80, 80))
             screen.blit(hint_text, (60, 590))
             next_rect = pygame.Rect(760, 620, 170, 50)
             back_rect = pygame.Rect(560, 620, 170, 50)
@@ -494,10 +611,12 @@ def run_custom_mode_ui():
             if mouse_clicked:
                 if minus_rect.collidepoint(mouse_pos) and len(state["player_names"]) > 1:
                     state["player_names"] = resize_names(state["player_names"], len(state["player_names"]) - 1)
+                    state["player_bot_flags"] = resize_flags(state["player_bot_flags"], len(state["player_names"]))
                     state["num_players_text"] = str(len(state["player_names"]))
                     editing = min(editing, len(state["player_names"]) - 1)
                 elif plus_rect.collidepoint(mouse_pos):
                     state["player_names"] = resize_names(state["player_names"], len(state["player_names"]) + 1)
+                    state["player_bot_flags"] = resize_flags(state["player_bot_flags"], len(state["player_names"]))
                     state["num_players_text"] = str(len(state["player_names"]))
                     editing = focus_player_field(state, len(state["player_names"]) - 1)
                     refresh_text_input()
@@ -510,10 +629,12 @@ def run_custom_mode_ui():
                     phase, error = "players", ""
                     refresh_text_input()
                 else:
-                    for index, rect in enumerate(name_rects):
+                    for index, rect, toggle_rect in name_rects:
                         if rect.collidepoint(mouse_pos):
                             editing = focus_player_field(state, index)
                             refresh_text_input()
+                        elif toggle_rect.collidepoint(mouse_pos):
+                            state["player_bot_flags"][index] = not state["player_bot_flags"][index]
 
         elif phase == "boxes":
             screen.blit(font.render("So o may man", True, (0, 0, 0)), (60, 40))
@@ -533,40 +654,77 @@ def run_custom_mode_ui():
 
         elif phase == "turn_mode":
             screen.blit(font.render("Kieu den luot", True, (0, 0, 0)), (60, 40))
-            screen.blit(small_font.render("Chon cach xac dinh nguoi mo o tiep theo.", True, (90, 90, 90)), (60, 74))
+            screen.blit(small_font.render("Chon cach xac dinh nguoi mo o tiep theo, layout va do kho cua bot.", True, (90, 90, 90)), (60, 74))
             sequential_rect = pygame.Rect(60, 140, 460, 130)
             manual_rect = pygame.Rect(560, 140, 460, 130)
             next_rect = pygame.Rect(760, 620, 170, 50)
             back_rect = pygame.Rect(560, 620, 170, 50)
+            has_bots = any(state["player_bot_flags"])
             options = [
                 (SEQUENTIAL_TURN_MODE, sequential_rect, TURN_MODE_LABELS[SEQUENTIAL_TURN_MODE], "Tu dong quay vong tu nguoi dau den nguoi cuoi."),
                 (MANUAL_TURN_MODE, manual_rect, TURN_MODE_LABELS[MANUAL_TURN_MODE], "Nguoi choi tu click chon ten truoc khi mo o."),
             ]
             for mode_value, rect, title, description in options:
                 active = state["turn_mode"] == mode_value
-                fill_color = (244, 230, 186) if active else (234, 226, 210)
-                border_color = PALETTE["gold_dark"] if active else PALETTE["panel_dark"]
+                disabled = has_bots and mode_value == MANUAL_TURN_MODE
+                fill_color = (226, 221, 214) if disabled else (244, 230, 186) if active else (234, 226, 210)
+                border_color = (156, 150, 146) if disabled else PALETTE["gold_dark"] if active else PALETTE["panel_dark"]
                 pygame.draw.rect(screen, fill_color, rect, border_radius=12)
                 pygame.draw.rect(screen, border_color, rect, 3 if active else 2, border_radius=12)
                 screen.blit(font.render(title, True, (0, 0, 0)), (rect.x + 18, rect.y + 20))
                 screen.blit(small_font.render(description, True, (80, 80, 80)), (rect.x + 18, rect.y + 68))
+                if disabled:
+                    disabled_text = small_font.render("Co bot: khi bat dau se dung Lan luot.", True, PALETTE["crimson_dark"])
+                    screen.blit(disabled_text, (rect.x + 18, rect.bottom - 28))
+
+            ai_rects = []
+            for index, (ai_level, ai_config) in enumerate(AI_LEVELS.items()):
+                rect = pygame.Rect(60 + index * 320, 306, 280, 90)
+                active = state["ai_level"] == ai_level
+                fill_color = (244, 230, 186) if active else (234, 226, 210)
+                border_color = PALETTE["gold_dark"] if active else PALETTE["panel_dark"]
+                pygame.draw.rect(screen, fill_color, rect, border_radius=12)
+                pygame.draw.rect(screen, border_color, rect, 3 if active else 2, border_radius=12)
+                screen.blit(font.render(ai_config["label"], True, (0, 0, 0)), (rect.x + 18, rect.y + 14))
+                screen.blit(small_font.render(ai_config["description"], True, (80, 80, 80)), (rect.x + 18, rect.y + 46))
+                ai_rects.append((ai_level, rect))
+
+            layout_rects = []
+            for index, (layout_id, layout) in enumerate(BOARD_LAYOUTS.items()):
+                rect = pygame.Rect(60 + (index % 2) * 470, 432 + (index // 2) * 78, 420, 62)
+                active = state["layout_id"] == layout_id
+                fill_color = (244, 230, 186) if active else (234, 226, 210)
+                border_color = PALETTE["gold_dark"] if active else PALETTE["panel_dark"]
+                pygame.draw.rect(screen, fill_color, rect, border_radius=12)
+                pygame.draw.rect(screen, border_color, rect, 3 if active else 2, border_radius=12)
+                screen.blit(font.render(layout["label"], True, (0, 0, 0)), (rect.x + 16, rect.y + 10))
+                layout_detail = f"{layout['description']} | {layout['columns']} cot"
+                screen.blit(small_font.render(layout_detail, True, (80, 80, 80)), (rect.x + 16, rect.y + 34))
+                layout_rects.append((layout_id, rect))
             draw_button(screen, font, next_rect, "Tiep", (100, 200, 100))
             draw_button(screen, font, back_rect, "Tro lai", (220, 120, 120))
             if mouse_clicked:
                 if sequential_rect.collidepoint(mouse_pos):
                     state["turn_mode"] = SEQUENTIAL_TURN_MODE
-                elif manual_rect.collidepoint(mouse_pos):
+                elif manual_rect.collidepoint(mouse_pos) and not has_bots:
                     state["turn_mode"] = MANUAL_TURN_MODE
                 elif next_rect.collidepoint(mouse_pos):
                     phase = "weights"
                 elif back_rect.collidepoint(mouse_pos):
                     phase, error = "boxes", ""
+                else:
+                    for ai_level, rect in ai_rects:
+                        if rect.collidepoint(mouse_pos):
+                            state["ai_level"] = ai_level
+                    for layout_id, rect in layout_rects:
+                        if rect.collidepoint(mouse_pos):
+                            state["layout_id"] = layout_id
 
         elif phase == "weights":
             effects = get_all_effects(include_custom=True)
             state["weights"] = sanitize_weights(state["weights"], include_custom=True)
             screen.blit(font.render("Chinh ti le hieu ung", True, (0, 0, 0)), (60, 24))
-            screen.blit(small_font.render("Them effect moi va chinh xac suat ngay tai day.", True, (90, 90, 90)), (60, 58))
+            screen.blit(small_font.render("8 hieu ung mac dinh + nhom dac biet chi xuat hien o custom.", True, (90, 90, 90)), (60, 58))
             add_effect_rect = pygame.Rect(60, 90, 200, 42)
             reset_rect = pygame.Rect(280, 90, 160, 42)
             draw_button(screen, font, add_effect_rect, "Them effect", (120, 180, 230))
@@ -707,22 +865,48 @@ def run_custom_mode_ui():
 
         elif phase == "save":
             screen.blit(font.render("Luu che do nay?", True, (0, 0, 0)), (60, 60))
+            effective_turn_mode = state["turn_mode"]
+            if (any(state["player_bot_flags"]) or state["mode_variant"] == "solo_bot") and effective_turn_mode == MANUAL_TURN_MODE:
+                effective_turn_mode = SEQUENTIAL_TURN_MODE
             lines = [
                 f"Ten che do: {state['mode_name'].strip()}",
                 f"So nguoi choi: {len(state['player_names'])}",
                 f"So o: {state['num_boxes_text']}",
-                f"Kieu den luot: {TURN_MODE_LABELS[state['turn_mode']]}",
+                f"Kieu den luot: {TURN_MODE_LABELS[effective_turn_mode]}",
+                f"Layout: {BOARD_LAYOUTS.get(state['layout_id'], BOARD_LAYOUTS['classic'])['label']} | AI: {AI_LEVELS.get(state['ai_level'], AI_LEVELS['normal'])['label']}",
             ]
             for index, line in enumerate(lines):
                 screen.blit(font.render(line, True, (0, 0, 0)), (60, 130 + index * 40))
-            save_rect = pygame.Rect(60, 340, 220, 54)
-            play_rect = pygame.Rect(300, 340, 220, 54)
-            back_rect = pygame.Rect(540, 340, 220, 54)
+
+            mode_rects = []
+            mode_items = list(MODE_VARIANTS.items())
+            for index, (mode_id, mode_data) in enumerate(mode_items):
+                rect = pygame.Rect(60 + index * 270, 356, 242, 64)
+                active = state["mode_variant"] == mode_id
+                fill_color = (244, 230, 186) if active else (234, 226, 210)
+                border_color = PALETTE["gold_dark"] if active else PALETTE["panel_dark"]
+                pygame.draw.rect(screen, fill_color, rect, border_radius=12)
+                pygame.draw.rect(screen, border_color, rect, 3 if active else 2, border_radius=12)
+                screen.blit(font.render(mode_data["label"], True, (0, 0, 0)), (rect.x + 14, rect.y + 10))
+                screen.blit(small_font.render(mode_data["description"], True, (90, 90, 90)), (rect.x + 14, rect.y + 36))
+                mode_rects.append((mode_id, rect))
+
+            save_rect = pygame.Rect(60, 468, 220, 54)
+            play_rect = pygame.Rect(300, 468, 220, 54)
+            back_rect = pygame.Rect(540, 468, 220, 54)
             draw_button(screen, font, save_rect, "Choi va luu", (100, 200, 100))
             draw_button(screen, font, play_rect, "Chi choi lan nay", (120, 180, 230))
             draw_button(screen, font, back_rect, "Quay lai", (220, 120, 120))
             if mouse_clicked:
-                if save_rect.collidepoint(mouse_pos):
+                handled_mode = False
+                for mode_id, rect in mode_rects:
+                    if rect.collidepoint(mouse_pos):
+                        state["mode_variant"] = mode_id
+                        handled_mode = True
+                        break
+                if handled_mode:
+                    pass
+                elif save_rect.collidepoint(mouse_pos):
                     mode_name = state["mode_name"].strip()
                     if not mode_name:
                         error = "Ten che do khong duoc de trong."
@@ -731,10 +915,24 @@ def run_custom_mode_ui():
                     else:
                         mode = build_mode_data(state)
                         save_custom_mode(mode, state["original_name"])
-                        return make_players(mode["player_names"]), mode["num_boxes"], "custom", mode["weights"], mode["turn_mode"]
+                        return (
+                            build_players_for_mode(mode, state["player_bot_flags"]),
+                            mode["num_boxes"],
+                            "custom",
+                            mode["weights"],
+                            effective_turn_mode,
+                            build_mode_session_options(mode),
+                        )
                 elif play_rect.collidepoint(mouse_pos):
                     mode = build_mode_data(state)
-                    return make_players(mode["player_names"]), mode["num_boxes"], "custom", mode["weights"], mode["turn_mode"]
+                    return (
+                        build_players_for_mode(mode, state["player_bot_flags"]),
+                        mode["num_boxes"],
+                        "custom",
+                        mode["weights"],
+                        effective_turn_mode,
+                        build_mode_session_options(mode),
+                    )
                 elif back_rect.collidepoint(mouse_pos):
                     phase, error = "weights", ""
 

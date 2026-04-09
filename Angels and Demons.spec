@@ -35,5 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['angels_and_demons_game\\ui\\demon.ico'],
+    icon=['angels_and_demons_game\\assets\\images\\friendly_app_icon.ico'],
 )

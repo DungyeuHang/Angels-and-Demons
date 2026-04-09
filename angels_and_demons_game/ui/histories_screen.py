@@ -1,8 +1,13 @@
 import pygame
 
+from constants import BOARD_LAYOUTS
+from constants import MODE_VARIANTS
 from models.history import clear_game_history
 from models.history import delete_game_history_entry
 from models.history import load_game_history
+from models.turn_modes import TURN_MODE_LABELS
+from ui.brand_assets import apply_window_icon
+from ui.brand_assets import get_surface
 from ui.theme import PALETTE
 from ui.theme import draw_background
 from ui.theme import draw_button
@@ -15,6 +20,8 @@ def show_history_screen(screen, font):
     scroll_speed = 32
     running = True
     small_font = pygame.font.Font(font.path, 16) if hasattr(font, "path") else font
+    emblem_surface = get_surface("brand_emblem", (44, 44))
+    apply_window_icon()
 
     while running:
         history = load_game_history()
@@ -24,6 +31,8 @@ def show_history_screen(screen, font):
         header_rect = pygame.Rect(34, 24, screen.get_width() - 68, 74)
         draw_panel(screen, header_rect, fill_color=(248, 241, 225), border_color=PALETTE["gold_dark"], radius=24)
         draw_title(screen, font, "Lich su cac van choi", (header_rect.centerx, header_rect.centery), PALETTE["text"])
+        if emblem_surface is not None:
+            screen.blit(emblem_surface, (header_rect.right - 62, header_rect.y + 14))
 
         clear_all_rect = pygame.Rect(screen.get_width() - 210, 116, 170, 46)
         if history:
@@ -38,7 +47,11 @@ def show_history_screen(screen, font):
         for display_index, history_index in enumerate(range(len(history) - 1, -1, -1), start=1):
             game = history[history_index]
             players = game.get("players", [])
-            card_height = 84 + len(players) * 28
+            top_effects = game.get("top_effects", [])
+            extra_lines = 1 if game.get("winner") else 0
+            extra_lines += 1 if game.get("num_boxes") else 0
+            extra_lines += len(top_effects[:2])
+            card_height = 84 + (len(players) + extra_lines) * 26
             card_rect = pygame.Rect(40, y, screen.get_width() - 80, card_height)
 
             if card_rect.bottom >= content_top and card_rect.top <= content_bottom:
@@ -54,6 +67,30 @@ def show_history_screen(screen, font):
                 delete_buttons.append((history_index, delete_rect))
 
                 player_y = card_rect.y + 56
+                winner_name = str(game.get("winner", "")).strip()
+                if winner_name:
+                    winner_score = game.get("winner_score", 0)
+                    winner_text = font.render(f"Thang: {winner_name} - {winner_score} diem", True, PALETTE["text"])
+                    screen.blit(winner_text, (card_rect.x + 20, player_y))
+                    player_y += 26
+
+                num_boxes = game.get("num_boxes")
+                if num_boxes:
+                    turn_mode = game.get("turn_mode")
+                    turn_mode_label = TURN_MODE_LABELS.get(turn_mode, "Lan luot")
+                    opened_count = game.get("opened_count", num_boxes)
+                    layout_label = BOARD_LAYOUTS.get(str(game.get("layout_id", "classic")), BOARD_LAYOUTS["classic"])["label"]
+                    bot_label = "Co bot" if game.get("has_bots") else "Toan nguoi"
+                    mode_variant = str(game.get("mode_variant", "standard"))
+                    mode_label = MODE_VARIANTS.get(mode_variant, MODE_VARIANTS["standard"])["label"]
+                    if mode_variant == "challenge" and game.get("challenge_title"):
+                        mode_label = f"{mode_label}: {game.get('challenge_title')}"
+                    elif mode_variant == "best_of_three":
+                        mode_label = f"{mode_label} - Round {game.get('round_number', 1)}"
+                    meta_text = small_font.render(f"{mode_label} | {turn_mode_label} | {opened_count}/{num_boxes} o da mo | {layout_label} | {bot_label}", True, PALETTE["muted"])
+                    screen.blit(meta_text, (card_rect.x + 20, player_y))
+                    player_y += 24
+
                 for player_index, player in enumerate(players, start=1):
                     bullet_color = PALETTE["gold"] if player_index == 1 else PALETTE["azure"]
                     pygame.draw.circle(screen, bullet_color, (card_rect.x + 26, player_y + 10), 6)
@@ -64,6 +101,20 @@ def show_history_screen(screen, font):
                     )
                     screen.blit(player_text, (card_rect.x + 42, player_y))
                     player_y += 26
+
+                for effect in top_effects[:2]:
+                    effect_label = str(effect.get("label", effect.get("id", "Effect")))
+                    effect_count = effect.get("count", 0)
+                    effect_text = small_font.render(f"Top effect: {effect_label} x{effect_count}", True, PALETTE["muted"])
+                    screen.blit(effect_text, (card_rect.x + 20, player_y))
+                    player_y += 22
+
+                achievements = game.get("unlocked_achievements", [])
+                if achievements:
+                    unlocked_titles = ", ".join(item.get("title", "") for item in achievements[:2])
+                    achievement_text = small_font.render(f"Thanh tuu moi: {unlocked_titles}", True, PALETTE["muted"])
+                    screen.blit(achievement_text, (card_rect.x + 20, player_y))
+                    player_y += 22
 
             y += card_height + 16
             content_height += card_height + 16

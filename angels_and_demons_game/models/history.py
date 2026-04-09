@@ -37,14 +37,34 @@ def write_game_history(history):
         json.dump(history, file, indent=2, ensure_ascii=False)
 
 
-def save_game_history_entry(players):
+def save_game_history_entry(players, metadata=None):
+    metadata = metadata or {}
     history = load_game_history()
-    history.append(
-        {
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "players": [{"name": player.name, "score": player.score} for player in players],
-        }
-    )
+    entry = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "players": [{"name": player.name, "score": player.score} for player in players],
+    }
+    for key in (
+        "winner",
+        "winner_score",
+        "num_boxes",
+        "opened_count",
+        "turn_mode",
+        "layout_id",
+        "match_preset",
+        "mode_variant",
+        "challenge_id",
+        "challenge_title",
+        "series_target_wins",
+        "round_number",
+        "has_bots",
+        "player_roster",
+        "top_effects",
+        "unlocked_achievements",
+    ):
+        if key in metadata:
+            entry[key] = metadata[key]
+    history.append(entry)
     write_game_history(history)
 
 

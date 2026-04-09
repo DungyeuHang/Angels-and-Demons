@@ -1,59 +1,99 @@
 import random
-from pathlib import Path
-
-import pygame
 
 from models.custom_effects import CUSTOM_EFFECT_OPERATION_LABELS
 from models.custom_effects import load_custom_effects
-
-
-pygame.mixer.pre_init(44100, -16, 2, 512)
-pygame.init()
-try:
-    pygame.mixer.init()
-except pygame.error:
-    pass
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-SOUND_DIR = BASE_DIR / "assets" / "sounds"
+from ui.audio import play_sfx
 
 BUILTIN_EFFECTS = [
-    {"id": "angel", "label": "Thien than", "default_weight": 1.0},
-    {"id": "devil", "label": "Ac quy", "default_weight": 1.0},
-    {"id": "gun", "label": "Sung", "default_weight": 1.0},
-    {"id": "lucky", "label": "May man", "default_weight": 1.0},
-    {"id": "lottery", "label": "Trung so", "default_weight": 1.0},
-    {"id": "rps", "label": "Keo bua bao", "default_weight": 1.0},
-    {"id": "double", "label": "Nhan doi", "default_weight": 0.5},
-    {"id": "half", "label": "Chia doi", "default_weight": 0.5},
+    {
+        "id": "angel",
+        "label": "Thien than",
+        "default_weight": 1.0,
+        "value": 18,
+        "tooltip": "Nhan ngay 18 diem. On dinh, an toan va hop de gap luc dang am diem.",
+    },
+    {
+        "id": "devil",
+        "label": "Ac quy",
+        "default_weight": 1.0,
+        "value": 22,
+        "tooltip": "Mat 22 diem, nhung co the duoc La chan chan lai.",
+    },
+    {
+        "id": "gun",
+        "label": "Sung",
+        "default_weight": 1.0,
+        "value": 18,
+        "tooltip": "Lay 18 diem tu mot nguoi choi ngau nhien. Hieu qua trong tran dong nguoi.",
+    },
+    {
+        "id": "lucky",
+        "label": "May man",
+        "default_weight": 1.0,
+        "value": 26,
+        "tooltip": "Nhan 26 diem. Tot hon Thien than mot chut va de lap combo.",
+    },
+    {
+        "id": "lottery",
+        "label": "Trung so",
+        "default_weight": 1.0,
+        "value": 42,
+        "tooltip": "No diem lon voi 42 diem. Ty le trung van hiem hon cac effect cong diem thuong.",
+    },
+    {
+        "id": "rps",
+        "label": "Keo bua bao",
+        "default_weight": 1.0,
+        "value": 12,
+        "tooltip": "Nhan 1 de thang, 2 de thua. Neu thang duoc 12 diem.",
+    },
+    {
+        "id": "double",
+        "label": "Nhan doi",
+        "default_weight": 0.5,
+        "tooltip": "Nhan doi diem hien tai. Neu dang 0 hoac am se nhan cuu tro nho de khong qua hut hang.",
+    },
+    {
+        "id": "half",
+        "label": "Chia doi",
+        "default_weight": 0.5,
+        "tooltip": "Mat mot nua tong diem hien tai. Cang cao diem cang nguy hiem.",
+    },
+]
+
+CUSTOM_ONLY_EFFECTS = [
+    {
+        "id": "shield",
+        "label": "La chan",
+        "default_weight": 0.0,
+        "custom_only": True,
+        "tooltip": "Nhan 1 la chan. Tu dong chan mot effect xau sap toi.",
+    },
+    {
+        "id": "swap",
+        "label": "Doi menh",
+        "default_weight": 0.0,
+        "custom_only": True,
+        "tooltip": "Hoan doi tong diem voi mot nguoi choi ngau nhien.",
+    },
+    {
+        "id": "reverse",
+        "label": "Dao chieu",
+        "default_weight": 0.0,
+        "custom_only": True,
+        "tooltip": "Dao nguoc huong luot hien tai. Cang dong nguoi cang kho doan.",
+    },
+    {
+        "id": "oracle",
+        "label": "Tien tri",
+        "default_weight": 0.0,
+        "custom_only": True,
+        "tooltip": "Soi truoc 3 o chua mo trong vai giay, cuc hop de set combo.",
+    },
 ]
 
 NEGATIVE_BUILTIN_IDS = {"devil", "half"}
 NEGATIVE_CUSTOM_OPERATIONS = {"subtract_self", "divide_self", "give_random", "all_lose"}
-
-
-def load_sound(filename, default=None, volume=0.6):
-    path = SOUND_DIR / filename
-    if not path.exists():
-        return default
-    try:
-        sound = pygame.mixer.Sound(str(path))
-        sound.set_volume(volume)
-        return sound
-    except Exception:
-        return default
-
-
-SOUNDS = {
-    "angel": load_sound("angels.mp3"),
-    "devil": load_sound("devil.mp3"),
-    "gun": load_sound("gun.mp3"),
-    "lucky": load_sound("lucky.mp3"),
-    "lottery": load_sound("lotery.mp3"),
-    "rps": load_sound("rps.mp3"),
-    "double": load_sound("double.mp3"),
-    "half": load_sound("half.mp3"),
-}
 
 
 def format_number(value):
@@ -71,9 +111,14 @@ def get_builtin_effects():
     return [dict(effect) for effect in BUILTIN_EFFECTS]
 
 
+def get_custom_only_effects():
+    return [dict(effect) for effect in CUSTOM_ONLY_EFFECTS]
+
+
 def get_all_effects(include_custom=True):
     effects = get_builtin_effects()
     if include_custom:
+        effects.extend(get_custom_only_effects())
         for effect in load_custom_effects():
             custom_effect = dict(effect)
             custom_effect["default_weight"] = 0.0
@@ -89,14 +134,32 @@ def get_effect_definition(effect_id, include_custom=True):
     return None
 
 
+def get_effect_label(effect_id, fallback=None):
+    effect_definition = get_effect_definition(effect_id)
+    if effect_definition:
+        return str(effect_definition.get("label") or effect_definition.get("name") or effect_id)
+    return str(fallback if fallback is not None else effect_id)
+
+
+def get_effect_help(effect_id):
+    effect_definition = get_effect_definition(effect_id)
+    if effect_definition is None:
+        return "Khong tim thay mo ta cho effect nay."
+
+    tooltip = str(effect_definition.get("tooltip", "")).strip()
+    if tooltip:
+        return tooltip
+
+    if effect_definition.get("is_custom"):
+        operation_label = CUSTOM_EFFECT_OPERATION_LABELS.get(effect_definition.get("operation"), effect_definition.get("operation", "custom"))
+        value = format_number(effect_definition.get("value", 0))
+        return f"Effect custom: {operation_label}, gia tri {value}."
+
+    return f"Effect {get_effect_label(effect_id)}."
+
+
 def play_effect(effect_id, stop_others=True):
-    if not pygame.mixer.get_init():
-        return
-    sound = SOUNDS.get(str(effect_id))
-    if sound:
-        if stop_others:
-            pygame.mixer.stop()
-        sound.play()
+    play_sfx(str(effect_id), stop_others=stop_others)
 
 
 def choose_random_other(player, all_players):
@@ -127,40 +190,66 @@ def swap_scores(player, target):
 
 def apply_builtin_effect(effect_id, player, all_players=None, game_state=None):
     play_effect(effect_id)
+    effect_definition = get_effect_definition(effect_id, include_custom=False) or {}
 
     if effect_id in NEGATIVE_BUILTIN_IDS:
-        blocked_message = protected_from_negative(player, get_effect_definition(effect_id, include_custom=False)["label"])
+        blocked_message = protected_from_negative(player, effect_definition.get("label", effect_id))
         if blocked_message:
             return blocked_message
 
     if effect_id == "angel":
-        player.add_score(15)
-        return "Ban gap Thien than! +15 diem."
+        gain = int(effect_definition.get("value", 18))
+        player.add_score(gain)
+        return f"Ban gap Thien than! +{gain} diem."
     if effect_id == "devil":
-        player.subtract_score(25)
-        return "Ban gap Ac quy! -25 diem."
+        loss = int(effect_definition.get("value", 22))
+        player.subtract_score(loss)
+        return f"Ban gap Ac quy! -{loss} diem."
     if effect_id == "gun":
         target = choose_random_other(player, all_players)
         if target is None:
             return "Khong the cuop diem vi khong co nguoi choi khac."
-        target.subtract_score(20)
-        player.add_score(20)
-        player.record_steal(20)
-        return f"{player.name} da cuop 20 diem tu {target.name}!"
+        transfer_amount = int(effect_definition.get("value", 18))
+        target.subtract_score(transfer_amount)
+        player.add_score(transfer_amount)
+        player.record_steal(transfer_amount)
+        return f"{player.name} da cuop {transfer_amount} diem tu {target.name}!"
     if effect_id == "lucky":
-        player.add_score(30)
-        return "May man den! +30 diem."
+        gain = int(effect_definition.get("value", 26))
+        player.add_score(gain)
+        return f"May man den! +{gain} diem."
     if effect_id == "lottery":
-        player.add_score(50)
-        return "Trung so! +50 diem."
+        gain = int(effect_definition.get("value", 42))
+        player.add_score(gain)
+        return f"Trung so! +{gain} diem."
     if effect_id == "double":
         current_score = player.score
+        if current_score <= 0:
+            rescue_gain = 10
+            player.add_score(rescue_gain)
+            return f"{player.name} gap Nhan doi khi diem thap, nhan +{rescue_gain} diem cuu tro!"
         player.add_score(current_score)
         return f"{player.name} duoc nhan doi so diem hien tai!"
     if effect_id == "half":
         lost_score = player.score // 2
         player.subtract_score(lost_score)
         return f"{player.name} bi chia doi diem, mat {lost_score} diem!"
+    if effect_id == "shield":
+        player.grant_shield(1)
+        return f"{player.name} nhan 1 La chan!"
+    if effect_id == "swap":
+        target = choose_random_other(player, all_players)
+        if target is None:
+            return "Khong the doi diem vi khong co nguoi choi khac."
+        swap_scores(player, target)
+        return f"{player.name} da doi diem voi {target.name}!"
+    if effect_id == "reverse":
+        if game_state is not None:
+            current_direction = int(game_state.get("turn_direction", 1) or 1)
+            game_state["turn_direction"] = -1 if current_direction > 0 else 1
+        return "Thu tu luot da bi dao chieu!"
+    if effect_id == "oracle":
+        return "Tien tri dang soi cac o an."
     if effect_id == "rps":
         return "Keo bua bao!"
     return "Khong co hieu ung nao xay ra."
@@ -275,8 +364,8 @@ def apply_effect(effect_id, player, all_players=None, game_state=None):
         return "Khong tim thay hieu ung."
 
     effect_id = str(effect_definition.get("id"))
-    builtin_ids = {effect["id"] for effect in BUILTIN_EFFECTS}
-    if effect_id in builtin_ids:
+    system_effect_ids = {effect["id"] for effect in BUILTIN_EFFECTS + CUSTOM_ONLY_EFFECTS}
+    if effect_id in system_effect_ids:
         return apply_builtin_effect(effect_id, player, all_players, game_state)
 
     return apply_custom_effect(effect_definition, player, all_players, game_state)

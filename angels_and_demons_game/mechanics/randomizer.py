@@ -9,7 +9,7 @@ def build_default_weight_map(include_custom=True):
     weights = {}
     for effect in effects:
         effect_id = str(effect["id"])
-        if effect.get("is_custom"):
+        if effect.get("is_custom") or effect.get("custom_only"):
             weights[effect_id] = 0.0
         else:
             weights[effect_id] = float(effect.get("default_weight", 1.0))
