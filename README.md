@@ -34,6 +34,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\build_release.ps1
 - `Enter`: xac nhan / bat dau
 - `H`: mo huong dan nhanh trong tran
 - `B`: mo `So tay hieu ung`
+- `T`: bat / tat tooltip nhanh
 - `M`: mute nhanh nhac va SFX
 - `1` / `2`: chon ket qua cho `Keo bua bao`
 - Chuot trai: mo o, chon nguoi choi, bam nut UI
@@ -43,6 +44,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\build_release.ps1
 - `Classic`: mot van thong thuong
 - `Solo vs Bot`: 1 nguoi dau 1 bot AI
 - `Challenge`: bo preset thu thach co san
+- Challenge hien co: `Chaos Trial`, `Halo Harvest`, `Devil's Gauntlet`, `Mind Maze`
 - `Best of 3`: can 2 van thang de vo dich series
 
 ## Thu muc quan trong

@@ -27,6 +27,75 @@ PALETTE = {
 }
 
 
+def get_ui_font(size, bold=False, italic=False):
+    try:
+        return pygame.font.SysFont(["segoeui", "calibri", "arial"], size, bold=bold, italic=italic)
+    except Exception:
+        return pygame.font.Font(None, size)
+
+
+def clamp_text(font, text, max_width, suffix="..."):
+    text = str(text or "")
+    if max_width <= 0:
+        return ""
+    if font.size(text)[0] <= max_width:
+        return text
+
+    truncated = text
+    while truncated and font.size(f"{truncated}{suffix}")[0] > max_width:
+        truncated = truncated[:-1]
+    return f"{truncated.rstrip()}{suffix}" if truncated else suffix
+
+
+def wrap_text(font, text, max_width, max_lines=None):
+    words = str(text or "").split()
+    if not words:
+        return []
+
+    lines = []
+    current = ""
+    for word in words:
+        trial = word if not current else f"{current} {word}"
+        if font.size(trial)[0] <= max_width:
+            current = trial
+            continue
+
+        if current:
+            lines.append(current)
+        current = word
+
+        if max_lines and len(lines) >= max_lines:
+            return lines
+
+    if current and (not max_lines or len(lines) < max_lines):
+        lines.append(current)
+
+    if max_lines and len(lines) > max_lines:
+        lines = lines[:max_lines]
+    if max_lines and len(lines) == max_lines:
+        lines[-1] = clamp_text(font, lines[-1], max_width)
+    return lines
+
+
+def ease_out_cubic(value):
+    value = max(0.0, min(1.0, float(value)))
+    return 1.0 - (1.0 - value) ** 3
+
+
+def get_reveal_progress(start_tick, current_tick, duration=420, delay_ms=0, reduce_motion=False):
+    if reduce_motion:
+        return 1.0
+    elapsed = max(0, int(current_tick) - int(start_tick) - int(delay_ms))
+    if elapsed <= 0:
+        return 0.0
+    return ease_out_cubic(min(1.0, elapsed / max(1, duration)))
+
+
+def get_reveal_rect(rect, progress, offset_y=18, offset_x=0):
+    progress = max(0.0, min(1.0, float(progress)))
+    return rect.move(int(round((1.0 - progress) * offset_x)), int(round((1.0 - progress) * offset_y)))
+
+
 def lerp_color(start_color, end_color, factor):
     return tuple(
         int(start + (end - start) * factor)
@@ -314,3 +383,30 @@ def draw_subtitle(surface, font, text, center, color=None):
     rect = subtitle.get_rect(center=center)
     surface.blit(subtitle, rect)
     return rect
+
+
+def draw_hint_bar(surface, font, rect, text, fill_color=None, border_color=None, text_color=None):
+    fill_color = fill_color or (247, 239, 223)
+    border_color = border_color or PALETTE["panel_dark"]
+    text_color = text_color or PALETTE["muted"]
+    draw_panel(surface, rect, fill_color=fill_color, border_color=border_color, radius=16, shadow=False)
+    text_surface = font.render(clamp_text(font, text, rect.width - 24), True, text_color)
+    surface.blit(text_surface, (rect.centerx - text_surface.get_width() // 2, rect.centery - text_surface.get_height() // 2))
+    return rect
+
+
+def draw_scrollbar(surface, track_rect, content_height, viewport_height, scroll_y, accent_color=None):
+    accent_color = accent_color or PALETTE["gold_dark"]
+    if content_height <= viewport_height or track_rect.height <= 0:
+        return None
+
+    pygame.draw.rect(surface, (233, 223, 206), track_rect, border_radius=max(8, track_rect.width // 2))
+    pygame.draw.rect(surface, PALETTE["panel_dark"], track_rect, 1, border_radius=max(8, track_rect.width // 2))
+
+    thumb_height = max(34, int(track_rect.height * (viewport_height / max(1, content_height))))
+    scroll_ratio = scroll_y / max(1, content_height - viewport_height)
+    thumb_y = track_rect.y + int((track_rect.height - thumb_height) * scroll_ratio)
+    thumb_rect = pygame.Rect(track_rect.x + 2, thumb_y, max(6, track_rect.width - 4), thumb_height)
+    pygame.draw.rect(surface, accent_color, thumb_rect, border_radius=max(8, thumb_rect.width // 2))
+    pygame.draw.rect(surface, PALETTE["white"], thumb_rect.inflate(-2, -6), 1, border_radius=max(6, thumb_rect.width // 2))
+    return thumb_rect

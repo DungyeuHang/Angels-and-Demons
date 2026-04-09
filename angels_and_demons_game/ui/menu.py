@@ -19,6 +19,7 @@ from ui.settings_screen import show_settings_screen
 from ui.stats_screen import show_stats_screen
 from models.settings import load_settings
 from ui.theme import PALETTE
+from ui.theme import clamp_text
 from ui.theme import draw_background
 from ui.theme import draw_cloud
 from ui.theme import draw_glow
@@ -27,6 +28,9 @@ from ui.theme import draw_panel
 from ui.theme import draw_star
 from ui.theme import draw_subtitle
 from ui.theme import draw_title
+from ui.theme import get_ui_font
+from ui.theme import get_reveal_progress
+from ui.theme import get_reveal_rect
 
 
 os.environ["SDL_VIDEO_CENTERED"] = "1"
@@ -90,7 +94,7 @@ def wrap_text(font, text, max_width):
     return lines
 
 
-def draw_menu_option(surface, title_font, detail_font, rect, title, detail, fill_color, border_color, hovered=False):
+def draw_menu_option(surface, title_font, detail_font, rect, title, detail, fill_color, border_color, hovered=False, hotkey_label=None):
     if hovered:
         draw_glow(surface, rect.center, border_color, max(40, rect.width // 2), 18)
 
@@ -99,6 +103,10 @@ def draw_menu_option(surface, title_font, detail_font, rect, title, detail, fill
     title_surface = title_font.render(title, True, PALETTE["text"])
     title_y = rect.y + 8
     surface.blit(title_surface, (rect.centerx - title_surface.get_width() // 2, title_y))
+
+    if hotkey_label:
+        key_rect = pygame.Rect(rect.right - 62, rect.y + 12, 40, 28)
+        draw_chip(surface, detail_font, key_rect, hotkey_label, (255, 248, 238), border_color)
 
     detail_lines = wrap_text(detail_font, detail, rect.width - 48)[:2]
     detail_y = rect.y + 30
@@ -118,21 +126,23 @@ def run_menu_ui():
 
     font_path = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
     title_font = pygame.font.Font(font_path, 42)
-    font = pygame.font.Font(font_path, 18)
-    small_font = pygame.font.Font(font_path, 15)
-    tiny_font = pygame.font.Font(font_path, 12)
+    font = get_ui_font(21, bold=True)
+    small_font = get_ui_font(15)
+    tiny_font = get_ui_font(13)
     clock = pygame.time.Clock()
     emblem_surface = get_surface("brand_emblem", (56, 56))
     angel_badge = get_surface("angel_badge", (32, 32))
     demon_badge = get_surface("demon_badge", (32, 32))
+    intro_tick = pygame.time.get_ticks()
+    reduce_motion = settings.get("reduce_motion", False)
 
     options = [
-        ("Choi mac dinh", "Vao game nhanh voi preset tran, layout moi va bot AI."),
-        ("Che do custom", "Tu tao luat choi, ti le hieu ung, bot va map rieng."),
-        ("Thong ke", "Xem thanh tuu, top hieu ung, career score va bang vang."),
-        ("Xem lich su", "Nhin lai nguoi thang, mode, layout va thanh tuu moi."),
-        ("Cai dat", "Bat tat nhac, SFX, fullscreen va dieu chinh volume."),
-        ("Thoat", "Dong game sau khi thuong hai xong."),
+        ("Choi mac dinh", "Vao game nhanh voi preset tran, layout moi va flow hop nguoi voi nhau.", "1"),
+        ("Che do custom", "Tu tao luat choi, ti le hieu ung, bot va map rieng.", "2"),
+        ("Thong ke", "Xem thanh tuu, top hieu ung, career score va bang vang.", "3"),
+        ("Xem lich su", "Nhin lai nguoi thang, mode, layout va thanh tuu moi.", "4"),
+        ("Cai dat", "Bat tat nhac, SFX, fullscreen va dieu chinh volume.", "5"),
+        ("Thoat", "Dong game sau khi thuong hai xong.", "6"),
     ]
     selected = 0
 
@@ -140,15 +150,19 @@ def run_menu_ui():
         tick = pygame.time.get_ticks()
         mouse_pos = pygame.mouse.get_pos()
         draw_background(screen, tick)
+        main_progress = get_reveal_progress(intro_tick, tick, duration=420, reduce_motion=reduce_motion)
+        hero_progress = get_reveal_progress(intro_tick, tick, duration=420, delay_ms=60, reduce_motion=reduce_motion)
 
         draw_cloud(screen, (142, 118), 0.82, (255, 249, 246))
         draw_cloud(screen, (812, 96), 0.92, (255, 246, 241))
         draw_glow(screen, (screen.get_width() * 0.5, 110), PALETTE["gold"], 170, 28)
 
-        main_rect = pygame.Rect(72, 42, screen.get_width() - 144, screen.get_height() - 84)
+        base_main_rect = pygame.Rect(72, 42, screen.get_width() - 144, screen.get_height() - 84)
+        main_rect = get_reveal_rect(base_main_rect, main_progress, offset_y=26)
         draw_panel(screen, main_rect, fill_color=(255, 247, 240), border_color=PALETTE["gold_dark"], radius=34)
 
-        hero_rect = pygame.Rect(main_rect.x + 34, main_rect.y + 24, main_rect.width - 68, 162)
+        base_hero_rect = pygame.Rect(main_rect.x + 34, main_rect.y + 24, main_rect.width - 68, 162)
+        hero_rect = get_reveal_rect(base_hero_rect, hero_progress, offset_y=16)
         draw_panel(screen, hero_rect, fill_color=(252, 241, 231), border_color=PALETTE["lilac"], radius=30, shadow=False)
 
         draw_mascot(screen, (hero_rect.x + 92, hero_rect.centery + 18), "angel", tick, 0.72)
@@ -181,8 +195,10 @@ def run_menu_ui():
         draw_cloud(screen, (main_rect.right - 90, main_rect.bottom - 36), 0.45, (255, 247, 243))
 
         option_rects = []
-        for index, (label, detail) in enumerate(options):
-            rect = pygame.Rect(main_rect.x + 44, section_title_y + 20 + index * 58, main_rect.width - 88, 54)
+        for index, (label, detail, hotkey) in enumerate(options):
+            base_rect = pygame.Rect(main_rect.x + 44, section_title_y + 20 + index * 58, main_rect.width - 88, 54)
+            option_progress = get_reveal_progress(intro_tick, tick, duration=360, delay_ms=110 + index * 45, reduce_motion=reduce_motion)
+            rect = get_reveal_rect(base_rect, option_progress, offset_y=14)
             hovered = rect.collidepoint(mouse_pos)
             if hovered:
                 selected = index
@@ -197,10 +213,15 @@ def run_menu_ui():
                 base_color = (247, 240, 232)
                 accent_color = PALETTE["panel_dark"]
 
-            draw_menu_option(screen, font, tiny_font, rect, label, detail, base_color, accent_color, hovered or index == selected)
+            draw_menu_option(screen, font, tiny_font, rect, label, detail, base_color, accent_color, hovered or index == selected, hotkey_label=hotkey)
             option_rects.append(rect)
 
-        footer_text = tiny_font.render("Tip: phim mui ten + Enter van hoat dong, nhan B de mo so tay effect.", True, PALETTE["muted"])
+        footer_copy = clamp_text(
+            tiny_font,
+            "Tip: mui ten + Enter van hoat dong, nhan 1-6 de mo nhanh va B de mo so tay effect.",
+            main_rect.width - 92,
+        )
+        footer_text = tiny_font.render(footer_copy, True, PALETTE["muted"])
         screen.blit(footer_text, (main_rect.x + 42, main_rect.bottom - 20))
 
         pygame.display.flip()
@@ -220,6 +241,14 @@ def run_menu_ui():
                     keep_running, screen = activate_option(selected, screen, font)
                     if not keep_running:
                         return
+                elif pygame.K_1 <= event.key <= pygame.K_6:
+                    hotkey_index = event.key - pygame.K_1
+                    if hotkey_index < len(options):
+                        selected = hotkey_index
+                        play_sfx("ui_click", volume_multiplier=0.42)
+                        keep_running, screen = activate_option(hotkey_index, screen, font)
+                        if not keep_running:
+                            return
                 elif event.key == pygame.K_b:
                     play_sfx("ui_click", volume_multiplier=0.36)
                     if show_effect_book_screen(screen) == "quit":

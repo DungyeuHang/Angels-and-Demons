@@ -40,6 +40,14 @@ class ScorePopupState:
 
 
 @dataclass
+class ComboBannerState:
+    label: str = ""
+    effect_id: str | None = None
+    created_at: int = 0
+    player_name: str = ""
+
+
+@dataclass
 class GameSession:
     players: list
     num_boxes: int
@@ -68,6 +76,7 @@ class GameSession:
     opened_effect_counts: dict[str, int] = field(default_factory=dict)
     help_visible: bool = False
     score_popups: list[ScorePopupState] = field(default_factory=list)
+    combo_banner: ComboBannerState | None = None
     player_reactions: dict[int, dict[str, Any]] = field(default_factory=dict)
     bot_action_due_at: int = 0
     result_saved: bool = False

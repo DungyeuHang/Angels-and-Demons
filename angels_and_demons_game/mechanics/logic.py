@@ -8,6 +8,7 @@ from mechanics.effects import get_effect_label
 from mechanics.effects import play_effect
 from mechanics.randomizer import get_random_effect
 from models.game_state import BannerState
+from models.game_state import ComboBannerState
 from models.game_state import GameSession
 from models.game_state import PendingEffectState
 from models.game_state import ScorePopupState
@@ -108,6 +109,8 @@ def snapshot_scores(session):
 def register_score_changes(session, score_snapshot, tick, box_number=None):
     positive_seen = False
     negative_seen = False
+    best_positive = None
+    best_negative = None
 
     for player_index, player in enumerate(session.players):
         delta = player.score - score_snapshot.get(player_index, player.score)
@@ -130,6 +133,10 @@ def register_score_changes(session, score_snapshot, tick, box_number=None):
         }
         positive_seen = positive_seen or delta > 0
         negative_seen = negative_seen or delta < 0
+        if delta > 0 and (best_positive is None or delta > best_positive[1]):
+            best_positive = (player.name, delta)
+        if delta < 0 and (best_negative is None or delta < best_negative[1]):
+            best_negative = (player.name, delta)
 
     session.score_popups = [popup for popup in session.score_popups if tick - popup.created_at <= 1800]
     session.player_reactions = {
@@ -142,6 +149,13 @@ def register_score_changes(session, score_snapshot, tick, box_number=None):
         play_sfx("point_gain", volume_multiplier=0.8)
     elif negative_seen and not positive_seen:
         play_sfx("point_loss", volume_multiplier=0.78)
+
+    if best_positive is not None and best_positive[1] >= 40:
+        label = f"Combo dep! {best_positive[0]} +{best_positive[1]} diem"
+        session.combo_banner = ComboBannerState(label=label, effect_id="lucky", created_at=tick, player_name=best_positive[0])
+    elif best_negative is not None and best_negative[1] <= -28:
+        label = f"Pha rung san! {best_negative[0]} {best_negative[1]} diem"
+        session.combo_banner = ComboBannerState(label=label, effect_id="devil", created_at=tick, player_name=best_negative[0])
 
 
 def resolve_next_player(session, current_player=None):
