@@ -138,7 +138,7 @@ def run_menu_ui():
 
     options = [
         ("Chơi mặc định", "Vào game nhanh với preset trận, layout mới và flow hợp người với nhau.", "1"),
-        ("Chế độ custom", "Tự tạo luật chơi, tỉ lệ hiệu ứng, bot và map riêng.", "2"),
+        ("Chế độ custom", "Tự tạo luật chơi, tỉ lệ hiệu ứng và map riêng cho các kèo người với người.", "2"),
         ("Thống kê", "Xem thành tựu, top hiệu ứng, career score và bảng vàng.", "3"),
         ("Xem lịch sử", "Nhìn lại người thắng, mode, layout và thành tựu mới.", "4"),
         ("Cài đặt", "Bật tắt nhạc, SFX, fullscreen và điều chỉnh volume.", "5"),

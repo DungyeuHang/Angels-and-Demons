@@ -14,10 +14,6 @@ MODE_VARIANTS = {
         "label": "Cổ điển",
         "description": "Trận đấu một ván, giữ nguyên luật cơ bản và tuỳ chỉnh của bạn.",
     },
-    "solo_bot": {
-        "label": "Solo đấu Bot",
-        "description": "Người chơi đầu tiên đối đầu một bot AI, hợp để test nhanh và luyện tay.",
-    },
     "challenge": {
         "label": "Thử thách",
         "description": "Áp bộ luật thử thách có sẵn, effect khó hơn và bố cục bất ngờ hơn.",
@@ -220,10 +216,6 @@ ACHIEVEMENT_DEFINITIONS = {
     "marathon_clear": {
         "title": "Đường dài",
         "description": "Hoàn thành một trận từ 70 ô trở lên.",
-    },
-    "bot_buster": {
-        "title": "Hạ gục AI",
-        "description": "Đánh bại bot ở mức Lão cá.",
     },
     "effect_collector": {
         "title": "Nhà sưu tầm",

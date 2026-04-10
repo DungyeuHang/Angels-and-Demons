@@ -7,7 +7,7 @@ Game nho bang `pygame` theo phong cach party board game: mo o, an effect, lat ke
 - 8 hieu ung mac dinh: `May man`, `Trung so`, `Keo bua bao`, `Sung`, `Thien than`, `Ac quy`, `Nhan doi`, `Chia doi`
 - Effect dac biet chi mo trong `custom`: `La chan`, `Doi menh`, `Dao chieu`, `Tien tri`
 - Nhac nen, SFX, icon va effect art da gan san
-- `Solo vs Bot`, `Challenge`, `Best of 3`
+- `Classic`, `Challenge`, `Best of 3`
 - `Settings`, `History`, `Stats`, `Achievements`
 - Tooltip hover va `So tay hieu ung`
 
@@ -42,7 +42,6 @@ powershell -ExecutionPolicy Bypass -File .\tools\build_release.ps1
 ## Che do choi
 
 - `Classic`: mot van thong thuong
-- `Solo vs Bot`: 1 nguoi dau 1 bot AI
 - `Challenge`: bo preset thu thach co san
 - Challenge hien co: `Chaos Trial`, `Halo Harvest`, `Devil's Gauntlet`, `Mind Maze`
 - `Best of 3`: can 2 van thang de vo dich series

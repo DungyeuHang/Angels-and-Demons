@@ -61,7 +61,7 @@ def show_stats_screen(screen, font):
 
         card_titles = [
             ("Tran da choi", str(summary["games_played"])),
-            ("Tran co bot", str(summary["games_vs_bot"])),
+            ("O da mo", str(summary["total_boxes_opened"])),
             ("Diem cao nhat", str(summary["career_best_score"])),
             ("Big swing", f"+{summary['largest_swing']}"),
         ]

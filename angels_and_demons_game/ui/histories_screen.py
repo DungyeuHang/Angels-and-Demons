@@ -58,7 +58,6 @@ def wrap_history_text(font, text, max_width, max_lines=2):
 FILTER_OPTIONS = [
     ("all", "Tat ca"),
     ("human", "Nguoi"),
-    ("bot", "Co bot"),
     ("challenge", "Challenge"),
     ("series", "Best of 3"),
 ]
@@ -68,8 +67,6 @@ def filter_history_entries(history, filter_mode="all"):
     history = history if isinstance(history, list) else []
     if filter_mode == "human":
         return [(index, game) for index, game in enumerate(history) if not game.get("has_bots")]
-    if filter_mode == "bot":
-        return [(index, game) for index, game in enumerate(history) if game.get("has_bots")]
     if filter_mode == "challenge":
         return [(index, game) for index, game in enumerate(history) if str(game.get("mode_variant", "")) == "challenge"]
     if filter_mode == "series":
@@ -144,7 +141,7 @@ def show_history_screen(screen, font):
         filter_rects = []
         chip_x = 40
         chip_y = 118
-        chip_widths = {"all": 90, "human": 92, "bot": 92, "challenge": 126, "series": 116}
+        chip_widths = {"all": 90, "human": 92, "challenge": 126, "series": 116}
         for filter_index, (filter_key, label) in enumerate(FILTER_OPTIONS):
             rect = get_reveal_rect(
                 pygame.Rect(chip_x, chip_y, chip_widths[filter_key], 34),
@@ -205,7 +202,6 @@ def show_history_screen(screen, font):
                     turn_mode = game.get("turn_mode")
                     turn_mode_label = TURN_MODE_LABELS.get(turn_mode, "Lan luot")
                     opened_count = game.get("opened_count", num_boxes)
-                    bot_label = "Co bot" if game.get("has_bots") else "Toan nguoi"
                     mode_variant = str(game.get("mode_variant", "standard"))
                     mode_label = MODE_VARIANTS.get(mode_variant, MODE_VARIANTS["standard"])["label"]
                     if mode_variant == "challenge" and game.get("challenge_title"):
@@ -222,21 +218,11 @@ def show_history_screen(screen, font):
 
                     mode_chip_width = min(194, max(110, tiny_font.size(mode_label)[0] + 18))
                     layout_chip_width = min(122, max(86, tiny_font.size(layout_label)[0] + 18))
-                    bot_chip_width = min(110, max(82, tiny_font.size(bot_label)[0] + 18))
                     chip_y = player_y + 22
                     mode_chip_rect = pygame.Rect(content_x, chip_y, mode_chip_width, 22)
                     layout_chip_rect = pygame.Rect(mode_chip_rect.right + 8, chip_y, layout_chip_width, 22)
-                    bot_chip_rect = pygame.Rect(layout_chip_rect.right + 8, chip_y, bot_chip_width, 22)
                     draw_history_meta_chip(screen, tiny_font, mode_chip_rect, mode_label, (255, 241, 224), PALETTE["gold_dark"])
                     draw_history_meta_chip(screen, tiny_font, layout_chip_rect, layout_label, (232, 241, 255), PALETTE["azure_dark"])
-                    draw_history_meta_chip(
-                        screen,
-                        tiny_font,
-                        bot_chip_rect,
-                        bot_label,
-                        (231, 245, 236) if not game.get("has_bots") else (245, 230, 236),
-                        PALETTE["mint_dark"] if not game.get("has_bots") else PALETTE["crimson_dark"],
-                    )
                     player_y = chip_y + 30
 
                 for player_index, player in enumerate(players, start=1):
@@ -301,7 +287,7 @@ def show_history_screen(screen, font):
                 screen,
                 tiny_font,
                 hint_rect,
-                f"Esc de quay lai | Phim 1-5 de loc | Dang hien {filtered_count}/{len(history)} tran | Re vao Top effect de xem chi tiet",
+                f"Esc de quay lai | Phim 1-4 de loc | Dang hien {filtered_count}/{len(history)} tran | Re vao Top effect de xem chi tiet",
             )
 
         pygame.display.flip()
@@ -321,12 +307,9 @@ def show_history_screen(screen, font):
                 active_filter = "human"
                 scroll_y = 0
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_3:
-                active_filter = "bot"
-                scroll_y = 0
-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_4:
                 active_filter = "challenge"
                 scroll_y = 0
-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_5:
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_4:
                 active_filter = "series"
                 scroll_y = 0
             elif event.type == pygame.KEYDOWN and event.key in {pygame.K_UP, pygame.K_w}:

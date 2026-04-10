@@ -284,7 +284,6 @@ def draw_wrapped_chip_group(surface, font, rect, chips, min_width=82, gap=8, lin
 def build_result_meta_chips(session, series_state=None):
     layout_label = BOARD_LAYOUTS.get(session.layout_id, BOARD_LAYOUTS["classic"])["label"]
     preset_label = MATCH_PRESETS.get(session.match_preset, MATCH_PRESETS["classic"])["label"]
-    bot_label = "Có bot" if session.has_bots else "Toàn người"
     mode_label = MODE_VARIANTS.get(session.mode_variant, MODE_VARIANTS["standard"])["label"]
     opened_label = f"{len(session.opened)}/{session.num_boxes} ô đã mở"
 
@@ -293,7 +292,6 @@ def build_result_meta_chips(session, series_state=None):
         (TURN_MODE_LABELS[session.turn_mode], (255, 241, 224), PALETTE["gold_dark"], PALETTE["text"]),
         (preset_label, (232, 241, 255), PALETTE["azure_dark"], PALETTE["text"]),
         (layout_label, (247, 239, 223), PALETTE["panel_dark"], PALETTE["text"]),
-        (bot_label, (231, 245, 236) if not session.has_bots else (245, 230, 236), PALETTE["mint_dark"] if not session.has_bots else PALETTE["crimson_dark"], PALETTE["text"]),
         (opened_label, (247, 239, 212), PALETTE["gold"], PALETTE["text"]),
     ]
 
@@ -615,7 +613,6 @@ def draw_help_overlay(surface, title_font, body_font, small_font):
         "Click vao o de mo hieu ung moi.",
         "Manual mode: click tên người chơi bên trái để đổi người mở ô.",
         "Gap Keo bua bao: nhan 1 de thang, 2 de thua.",
-        "Bot se tu mo o, ke ca khi gap Keo bua bao.",
         "Nhấn H hoặc Esc để đóng bảng này. Nhấn M để tắt tiếng nhanh, B để mở Sổ tay.",
         "Chế độ thường chỉ có 8 effect mặc định.",
         "Chế độ custom có thêm: Lá chắn, Đổi mệnh, Đảo chiều, Tiên tri.",

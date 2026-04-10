@@ -136,10 +136,6 @@ def record_session_progress(session):
         _unlock_achievement(profile, unlocked, "lucky_burst")
     if int(session.num_boxes) >= 70:
         _unlock_achievement(profile, unlocked, "marathon_clear")
-    if winner and not getattr(winner, "is_bot", False):
-        smart_bots = [player for player in players if getattr(player, "is_bot", False) and getattr(player, "ai_level", "") == "smart"]
-        if smart_bots:
-            _unlock_achievement(profile, unlocked, "bot_buster")
     if winner and session.mode_variant == "challenge" and not getattr(winner, "is_bot", False):
         _unlock_achievement(profile, unlocked, "challenge_cleared")
     if (
@@ -161,7 +157,7 @@ def build_profile_summary(profile=None):
     profile = sanitize_profile(profile or load_profile())
     ranked_players = sorted(profile["wins_by_name"].items(), key=lambda item: (-item[1], item[0]))
     ranked_effects = sorted(profile["top_effect_counts"].items(), key=lambda item: (-item[1], item[0]))
-    achievements = list(profile["achievements"].values())
+    achievements = [item for key, item in profile["achievements"].items() if key != "bot_buster"]
     achievements.sort(key=lambda item: item.get("unlocked_at", ""), reverse=True)
 
     return {
