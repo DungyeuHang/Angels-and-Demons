@@ -33,6 +33,7 @@ from ui.theme import draw_glow
 from ui.theme import draw_hint_bar
 from ui.theme import draw_panel
 from ui.theme import draw_scrollbar
+from ui.theme import get_title_font
 from ui.theme import get_ui_font
 
 
@@ -47,8 +48,7 @@ else:
 def get_font(size=20, ui=False, bold=False):
     if ui:
         return get_ui_font(size, bold=bold)
-    font_path = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
-    return pygame.font.Font(font_path, size)
+    return get_title_font(size)
 
 
 def placeholder_name(index):
@@ -685,7 +685,7 @@ def run_custom_mode_ui():
                             effect_editor = make_effect_editor()
                             error = ""
                         else:
-                            error = "Nhap ten va gia tri hop le cho effect moi."
+                            error = "Nhập tên và giá trị hợp lệ cho hiệu ứng mới."
                     elif event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
                         handle_backspace(state, phase, editing, effect_editor)
                         backspace_held = True
@@ -937,7 +937,7 @@ def run_custom_mode_ui():
                 screen,
                 small_font,
                 humans_only_rect,
-                "Tat ca la nguoi",
+                "Tất cả là người",
                 (231, 245, 236) if all_human_active else (241, 234, 221),
                 (0, 0, 0),
                 PALETTE["mint_dark"] if all_human_active else PALETTE["panel_dark"],
@@ -1012,7 +1012,7 @@ def run_custom_mode_ui():
 
         elif phase == "turn_mode":
             screen.blit(font.render("Kieu den luot", True, (0, 0, 0)), (60, 40))
-            screen.blit(small_font.render("Chon cach xac dinh nguoi mo o tiep theo va layout cho custom mode.", True, (90, 90, 90)), (60, 74))
+            screen.blit(small_font.render("Chọn cách xác định người mở ô tiếp theo và layout cho custom mode.", True, (90, 90, 90)), (60, 74))
             draw_hint_bar(screen, tiny_font, pygame.Rect(60, 102, 960, 28), "A-S den luot | Q-W-E-R layout | Enter de sang buoc effect")
             sequential_rect = pygame.Rect(60, 140, 460, 130)
             manual_rect = pygame.Rect(560, 140, 460, 130)
@@ -1203,7 +1203,7 @@ def run_custom_mode_ui():
             save_y = min(screen.get_height() - 80, preview_rect.bottom + 24)
             save_rect = pygame.Rect(760, save_y, 170, 50)
             back_rect = pygame.Rect(560, save_y, 170, 50)
-            draw_button(screen, font, save_rect, "Luu effect", (100, 200, 100))
+            draw_button(screen, font, save_rect, "Lưu hiệu ứng", (100, 200, 100))
             draw_button(screen, font, back_rect, "Trở lại", (220, 120, 120))
             if mouse_clicked:
                 if name_rect.collidepoint(mouse_pos):
@@ -1232,7 +1232,7 @@ def run_custom_mode_ui():
                         refresh_text_input()
                         error = ""
                     else:
-                        error = "Nhap ten va gia tri hop le cho effect moi."
+                        error = "Nhập tên và giá trị hợp lệ cho hiệu ứng mới."
                 else:
                     for operation_id, rect in option_rects:
                         if rect.collidepoint(mouse_pos):
@@ -1240,7 +1240,7 @@ def run_custom_mode_ui():
                             break
 
         elif phase == "save":
-            screen.blit(font.render("Luu che do nay?", True, (0, 0, 0)), (60, 60))
+            screen.blit(font.render("Lưu chế độ này?", True, (0, 0, 0)), (60, 60))
             effective_turn_mode = state["turn_mode"]
             snapshot_rect = pygame.Rect(60, 104, 700, 52)
             draw_custom_mode_snapshot_card(

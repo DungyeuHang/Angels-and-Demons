@@ -17,6 +17,7 @@ from ui.theme import draw_hint_bar
 from ui.theme import draw_panel
 from ui.theme import draw_scrollbar
 from ui.theme import draw_title
+from ui.theme import get_title_font
 from ui.theme import get_ui_font
 from ui.theme import get_reveal_progress
 from ui.theme import get_reveal_rect
@@ -30,8 +31,7 @@ else:
 
 def show_stats_screen(screen, font):
     summary = build_profile_summary()
-    font_path = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
-    title_font = pygame.font.Font(font_path, 30)
+    title_font = get_title_font(30)
     value_font = get_ui_font(24, bold=True)
     heading_font = get_ui_font(18, bold=True)
     small_font = get_ui_font(16)
@@ -55,14 +55,14 @@ def show_stats_screen(screen, font):
 
         panel_rect = get_reveal_rect(pygame.Rect(40, 26, screen.get_width() - 80, screen.get_height() - 52), panel_progress, offset_y=22)
         draw_panel(screen, panel_rect, fill_color=(248, 241, 225), border_color=PALETTE["gold_dark"], radius=28)
-        draw_title(screen, title_font, "Thong ke su nghiep", (panel_rect.centerx, panel_rect.y + 38), PALETTE["text"])
+        draw_title(screen, title_font, "Thống kê sự nghiệp", (panel_rect.centerx, panel_rect.y + 38), PALETTE["text"])
         if emblem_surface is not None:
             screen.blit(emblem_surface, (panel_rect.right - 86, panel_rect.y + 14))
 
         card_titles = [
-            ("Tran da choi", str(summary["games_played"])),
+            ("Trận đã chơi", str(summary["games_played"])),
             ("O da mo", str(summary["total_boxes_opened"])),
-            ("Diem cao nhat", str(summary["career_best_score"])),
+            ("Điểm cao nhất", str(summary["career_best_score"])),
             ("Big swing", f"+{summary['largest_swing']}"),
         ]
         for index, (title, value) in enumerate(card_titles):
@@ -93,7 +93,7 @@ def show_stats_screen(screen, font):
         draw_panel(screen, right_rect, fill_color=(241, 234, 221), border_color=PALETTE["panel_dark"], radius=22, shadow=False)
         hover_hint = None
 
-        screen.blit(heading_font.render("Bang vang", True, PALETTE["text"]), (left_rect.x + 16, left_rect.y + 12))
+        screen.blit(heading_font.render("Bảng vàng", True, PALETTE["text"]), (left_rect.x + 16, left_rect.y + 12))
         if angel_badge is not None:
             screen.blit(angel_badge, (left_rect.right - 48, left_rect.y + 10))
 
@@ -111,10 +111,10 @@ def show_stats_screen(screen, font):
                 screen.blit(wins_surface, (row_rect.right - wins_surface.get_width() - 12, row_rect.y + 10))
                 left_y += 48
         else:
-            screen.blit(small_font.render("Chua co nguoi choi nao duoc luu thong ke.", True, PALETTE["muted"]), (left_rect.x + 16, left_y))
+            screen.blit(small_font.render("Chưa có người chơi nào được lưu thống kê.", True, PALETTE["muted"]), (left_rect.x + 16, left_y))
             left_y += 38
 
-        screen.blit(heading_font.render("Top effect", True, PALETTE["text"]), (left_rect.x + 16, left_y + 10))
+        screen.blit(heading_font.render("Top hiệu ứng", True, PALETTE["text"]), (left_rect.x + 16, left_y + 10))
         left_y += 46
         for effect_id, count in summary["top_effects"]:
             row_rect = pygame.Rect(left_rect.x + 14, left_y, left_rect.width - 28, 38)
@@ -132,7 +132,7 @@ def show_stats_screen(screen, font):
         if left_max_scroll > 0:
             draw_scrollbar(screen, pygame.Rect(left_rect.right - 12, left_body_rect.y + 4, 8, left_body_rect.height - 8), left_content_height, left_body_rect.height, left_scroll_y, accent_color=PALETTE["gold_dark"])
 
-        screen.blit(heading_font.render("Thanh tuu", True, PALETTE["text"]), (right_rect.x + 16, right_rect.y + 12))
+        screen.blit(heading_font.render("Thành tựu", True, PALETTE["text"]), (right_rect.x + 16, right_rect.y + 12))
         if demon_badge is not None:
             screen.blit(demon_badge, (right_rect.right - 48, right_rect.y + 10))
 
@@ -153,7 +153,7 @@ def show_stats_screen(screen, font):
                     hover_hint = f"{achievement['title']}: {achievement['description']}"
                 achievement_y += 66
         else:
-            screen.blit(small_font.render("Chua mo khoa thanh tuu nao. Choi them de lap day bang vang.", True, PALETTE["muted"]), (right_rect.x + 16, achievement_y))
+            screen.blit(small_font.render("Chưa mở khóa thành tựu nào. Chơi thêm để lấp đầy bảng vàng.", True, PALETTE["muted"]), (right_rect.x + 16, achievement_y))
         right_content_height = max(0, achievement_y - right_rect.y + 8)
         right_max_scroll = max(0, right_content_height - right_body_rect.height)
         screen.set_clip(previous_clip)
@@ -176,8 +176,8 @@ def show_stats_screen(screen, font):
             get_reveal_progress(intro_tick, tick, duration=320, delay_ms=360, reduce_motion=reduce_motion),
             offset_y=10,
         )
-        last_winner = summary.get("last_winner") or "Chua co"
-        last_played_at = summary.get("last_played_at") or "Chua choi"
+        last_winner = summary.get("last_winner") or "Chưa có"
+        last_played_at = summary.get("last_played_at") or "Chưa chơi"
         draw_hint_bar(
             screen,
             tiny_font,
@@ -190,7 +190,7 @@ def show_stats_screen(screen, font):
             get_reveal_progress(intro_tick, tick, duration=320, delay_ms=400, reduce_motion=reduce_motion),
             offset_y=8,
         )
-        draw_button(screen, small_font, back_rect, "Quay lai", PALETTE["mint"], PALETTE["mint_dark"], back_rect.collidepoint(mouse_pos), PALETTE["text"])
+        draw_button(screen, small_font, back_rect, "Quay lại", PALETTE["mint"], PALETTE["mint_dark"], back_rect.collidepoint(mouse_pos), PALETTE["text"])
 
         left_scroll_y = max(0, min(left_scroll_y, left_max_scroll))
         right_scroll_y = max(0, min(right_scroll_y, right_max_scroll))

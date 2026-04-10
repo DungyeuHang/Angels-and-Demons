@@ -17,6 +17,7 @@ from ui.theme import draw_hint_bar
 from ui.theme import draw_panel
 from ui.theme import draw_scrollbar
 from ui.theme import draw_title
+from ui.theme import get_title_font
 from ui.theme import get_ui_font
 from ui.theme import get_reveal_progress
 from ui.theme import get_reveal_rect
@@ -41,8 +42,8 @@ ICON_KEYS = {
 }
 
 FILTER_OPTIONS = [
-    ("all", "Tat ca"),
-    ("builtin", "Mac dinh"),
+    ("all", "Tất cả"),
+    ("builtin", "Mặc định"),
     ("custom", "Custom"),
 ]
 
@@ -51,12 +52,12 @@ def build_effect_sections(filter_mode="all"):
     builtin_effects = get_builtin_effects()
     custom_effects = get_custom_only_effects()
     if filter_mode == "builtin":
-        return [("8 hieu ung co san", "Che do thuong luon dung 8 hieu ung nay.", builtin_effects)]
+        return [("8 hiệu ứng có sẵn", "Chế độ thường luôn dùng 8 hiệu ứng này.", builtin_effects)]
     if filter_mode == "custom":
-        return [("Chi co trong custom", "Nhom chien thuat dac biet, chi mo trong custom va challenge mo rong.", custom_effects)]
+        return [("Chỉ có trong custom", "Nhóm chiến thuật đặc biệt, chỉ mở trong custom và challenge mở rộng.", custom_effects)]
     return [
-        ("8 hieu ung co san", "Che do thuong luon dung 8 hieu ung nay.", builtin_effects),
-        ("Chi co trong custom", "Nhom chien thuat dac biet, chi mo trong custom va challenge mo rong.", custom_effects),
+        ("8 hiệu ứng có sẵn", "Chế độ thường luôn dùng 8 hiệu ứng này.", builtin_effects),
+        ("Chỉ có trong custom", "Nhóm chiến thuật đặc biệt, chỉ mở trong custom và challenge mở rộng.", custom_effects),
     ]
 
 
@@ -89,7 +90,7 @@ def draw_effect_row(surface, fonts, rect, effect, hovered=False):
     title = title_font.render(title_text, True, PALETTE["text"])
     surface.blit(title, (rect.x + 62, rect.y + 10))
 
-    subtitle = "Custom only" if effect.get("custom_only") else "Mac dinh"
+    subtitle = "Chỉ có trong custom" if effect.get("custom_only") else "Mặc định"
     subtitle_surface = tiny_font.render(subtitle, True, PALETTE["muted"])
     surface.blit(subtitle_surface, (rect.x + 62, rect.y + 34))
 
@@ -103,9 +104,8 @@ def draw_effect_row(surface, fonts, rect, effect, hovered=False):
 
 def show_effect_book_screen(screen):
     apply_window_icon()
-    font_path = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
     fonts = {
-        "title": pygame.font.Font(font_path, 30),
+        "title": get_title_font(30),
         "font": get_ui_font(18, bold=True),
         "small": get_ui_font(14),
         "tiny": get_ui_font(12),
@@ -124,7 +124,7 @@ def show_effect_book_screen(screen):
 
         panel_rect = get_reveal_rect(pygame.Rect(42, 28, screen.get_width() - 84, screen.get_height() - 56), panel_progress, offset_y=22)
         draw_panel(screen, panel_rect, fill_color=(249, 242, 228), border_color=PALETTE["gold_dark"], radius=28)
-        draw_title(screen, fonts["title"], "So tay hieu ung", (panel_rect.centerx, panel_rect.y + 42), PALETTE["text"])
+        draw_title(screen, fonts["title"], "Sổ tay hiệu ứng", (panel_rect.centerx, panel_rect.y + 42), PALETTE["text"])
 
         subtitle = fonts["small"].render("Nhan B hoac Esc de dong. Day la bang mo ta nhanh de tra effect trong luc choi.", True, PALETTE["muted"])
         screen.blit(subtitle, (panel_rect.centerx - subtitle.get_width() // 2, panel_rect.y + 74))
@@ -221,7 +221,7 @@ def show_effect_book_screen(screen):
             screen,
             fonts["font"],
             close_rect,
-            "Dong so tay",
+            "Đóng sổ tay",
             PALETTE["mint"],
             PALETTE["mint_dark"],
             close_rect.collidepoint(mouse_pos),

@@ -22,6 +22,7 @@ from ui.theme import draw_hint_bar
 from ui.theme import draw_panel
 from ui.theme import draw_scrollbar
 from ui.theme import draw_title
+from ui.theme import get_title_font
 from ui.theme import get_ui_font
 from ui.theme import get_reveal_progress
 from ui.theme import get_reveal_rect
@@ -56,8 +57,8 @@ def wrap_history_text(font, text, max_width, max_lines=2):
 
 
 FILTER_OPTIONS = [
-    ("all", "Tat ca"),
-    ("human", "Nguoi"),
+    ("all", "Tất cả"),
+    ("human", "Người"),
     ("challenge", "Challenge"),
     ("series", "Best of 3"),
 ]
@@ -106,8 +107,7 @@ def show_history_screen(screen, font):
     scroll_speed = 32
     running = True
     active_filter = "all"
-    font_path = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
-    title_font = pygame.font.Font(font_path, 30)
+    title_font = get_title_font(30)
     body_font = get_ui_font(17, bold=True)
     small_font = get_ui_font(15)
     tiny_font = get_ui_font(13)
@@ -126,7 +126,7 @@ def show_history_screen(screen, font):
 
         header_rect = get_reveal_rect(pygame.Rect(34, 24, screen.get_width() - 68, 74), header_progress, offset_y=18)
         draw_panel(screen, header_rect, fill_color=(248, 241, 225), border_color=PALETTE["gold_dark"], radius=24)
-        draw_title(screen, title_font, "Lich su cac van choi", (header_rect.centerx, header_rect.centery), PALETTE["text"])
+        draw_title(screen, title_font, "Lịch sử các ván chơi", (header_rect.centerx, header_rect.centery), PALETTE["text"])
         if emblem_surface is not None:
             screen.blit(emblem_surface, (header_rect.right - 62, header_rect.y + 14))
 
@@ -136,7 +136,7 @@ def show_history_screen(screen, font):
             offset_y=12,
         )
         if history:
-            draw_button(screen, small_font, clear_all_rect, "Xoa tat ca", PALETTE["crimson"], PALETTE["crimson_dark"], clear_all_rect.collidepoint(pygame.mouse.get_pos()))
+            draw_button(screen, small_font, clear_all_rect, "Xóa tất cả", PALETTE["crimson"], PALETTE["crimson_dark"], clear_all_rect.collidepoint(pygame.mouse.get_pos()))
 
         filter_rects = []
         chip_x = 40
@@ -175,12 +175,12 @@ def show_history_screen(screen, font):
                 stripe_rect = pygame.Rect(card_rect.x, card_rect.y, card_rect.width, 42)
                 pygame.draw.rect(screen, PALETTE["panel_dark"], stripe_rect, border_top_left_radius=20, border_top_right_radius=20)
 
-                title_copy = clamp_text(body_font, f"Tran {display_index} - {game.get('timestamp', 'Unknown')}", stripe_rect.width - 150)
+                title_copy = clamp_text(body_font, f"Trận {display_index} - {game.get('timestamp', 'Unknown')}", stripe_rect.width - 150)
                 title_text = body_font.render(title_copy, True, PALETTE["white"])
                 screen.blit(title_text, (card_rect.x + 18, card_rect.y + 10))
 
                 delete_rect = pygame.Rect(card_rect.right - 118, card_rect.y + 8, 92, 28)
-                draw_button(screen, small_font, delete_rect, "Xoa", PALETTE["crimson"], PALETTE["crimson_dark"], delete_rect.collidepoint(pygame.mouse.get_pos()))
+                draw_button(screen, small_font, delete_rect, "Xóa", PALETTE["crimson"], PALETTE["crimson_dark"], delete_rect.collidepoint(pygame.mouse.get_pos()))
                 delete_buttons.append((history_index, delete_rect))
 
                 layout_label = BOARD_LAYOUTS.get(str(game.get("layout_id", "classic")), BOARD_LAYOUTS["classic"])["label"]
@@ -192,7 +192,7 @@ def show_history_screen(screen, font):
                 winner_name = str(game.get("winner", "")).strip()
                 if winner_name:
                     winner_score = game.get("winner_score", 0)
-                    winner_copy = clamp_text(body_font, f"Thang: {winner_name} - {winner_score} diem", content_width)
+                    winner_copy = clamp_text(body_font, f"Thắng: {winner_name} - {winner_score} điểm", content_width)
                     winner_text = body_font.render(winner_copy, True, PALETTE["text"])
                     screen.blit(winner_text, (content_x, player_y))
                     player_y += 24
@@ -200,7 +200,7 @@ def show_history_screen(screen, font):
                 num_boxes = game.get("num_boxes")
                 if num_boxes:
                     turn_mode = game.get("turn_mode")
-                    turn_mode_label = TURN_MODE_LABELS.get(turn_mode, "Lan luot")
+                    turn_mode_label = TURN_MODE_LABELS.get(turn_mode, "Lần lượt")
                     opened_count = game.get("opened_count", num_boxes)
                     mode_variant = str(game.get("mode_variant", "standard"))
                     mode_label = MODE_VARIANTS.get(mode_variant, MODE_VARIANTS["standard"])["label"]
@@ -236,7 +236,7 @@ def show_history_screen(screen, font):
                 for effect in top_effects[:2]:
                     effect_label = str(effect.get("label", effect.get("id", "Effect")))
                     effect_count = effect.get("count", 0)
-                    effect_copy = clamp_text(small_font, f"Top effect: {effect_label} x{effect_count}", content_width)
+                    effect_copy = clamp_text(small_font, f"Top hiệu ứng: {effect_label} x{effect_count}", content_width)
                     effect_text = small_font.render(effect_copy, True, PALETTE["muted"])
                     effect_pos = (content_x, player_y)
                     screen.blit(effect_text, effect_pos)
@@ -252,7 +252,7 @@ def show_history_screen(screen, font):
                 achievements = game.get("unlocked_achievements", [])
                 if achievements:
                     unlocked_titles = ", ".join(item.get("title", "") for item in achievements[:2])
-                    achievement_copy = clamp_text(small_font, f"Thanh tuu moi: {unlocked_titles}", content_width)
+                    achievement_copy = clamp_text(small_font, f"Thành tựu mới: {unlocked_titles}", content_width)
                     achievement_text = small_font.render(achievement_copy, True, PALETTE["muted"])
                     screen.blit(achievement_text, (content_x, player_y))
                     player_y += 22
@@ -263,8 +263,8 @@ def show_history_screen(screen, font):
         if not history:
             empty_rect = pygame.Rect(screen.get_width() // 2 - 220, screen.get_height() // 2 - 70, 440, 140)
             draw_panel(screen, empty_rect, fill_color=(247, 239, 223), border_color=PALETTE["panel_dark"], radius=24)
-            draw_title(screen, title_font, "Chua co lich su", (empty_rect.centerx, empty_rect.centery - 12), PALETTE["text"])
-            helper = small_font.render("Bat dau mot tran moi de lap day bo suu tap ky niem.", True, PALETTE["muted"])
+            draw_title(screen, title_font, "Chưa có lịch sử", (empty_rect.centerx, empty_rect.centery - 12), PALETTE["text"])
+            helper = small_font.render("Bắt đầu một trận mới để lấp đầy bộ sưu tập kỷ niệm.", True, PALETTE["muted"])
             screen.blit(helper, (empty_rect.centerx - helper.get_width() // 2, empty_rect.centery + 22))
 
         back_rect = get_reveal_rect(
@@ -272,7 +272,7 @@ def show_history_screen(screen, font):
             get_reveal_progress(intro_tick, tick, duration=320, delay_ms=360, reduce_motion=reduce_motion),
             offset_y=8,
         )
-        draw_button(screen, small_font, back_rect, "Quay lai", PALETTE["mint"], PALETTE["mint_dark"], back_rect.collidepoint(pygame.mouse.get_pos()), PALETTE["text"])
+        draw_button(screen, small_font, back_rect, "Quay lại", PALETTE["mint"], PALETTE["mint_dark"], back_rect.collidepoint(pygame.mouse.get_pos()), PALETTE["text"])
 
         scrollbar_rect = pygame.Rect(screen.get_width() - 34, content_top + 4, 10, content_bottom - content_top - 8)
         draw_scrollbar(screen, scrollbar_rect, content_height, content_bottom - content_top, scroll_y, accent_color=PALETTE["gold_dark"])
@@ -287,7 +287,7 @@ def show_history_screen(screen, font):
                 screen,
                 tiny_font,
                 hint_rect,
-                f"Esc de quay lai | Phim 1-4 de loc | Dang hien {filtered_count}/{len(history)} tran | Re vao Top effect de xem chi tiet",
+                f"Esc để quay lại | Phím 1-4 để lọc | Đang hiện {filtered_count}/{len(history)} trận | Rê vào Top hiệu ứng để xem chi tiết",
             )
 
         pygame.display.flip()

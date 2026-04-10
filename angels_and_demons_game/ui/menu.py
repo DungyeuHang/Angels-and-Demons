@@ -28,6 +28,7 @@ from ui.theme import draw_panel
 from ui.theme import draw_star
 from ui.theme import draw_subtitle
 from ui.theme import draw_title
+from ui.theme import get_title_font
 from ui.theme import get_ui_font
 from ui.theme import get_reveal_progress
 from ui.theme import get_reveal_rect
@@ -124,8 +125,7 @@ def run_menu_ui():
     apply_window_icon()
     play_music("menu", force_restart=True)
 
-    font_path = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
-    title_font = pygame.font.Font(font_path, 42)
+    title_font = get_title_font(42)
     font = get_ui_font(21, bold=True)
     small_font = get_ui_font(15)
     tiny_font = get_ui_font(13)

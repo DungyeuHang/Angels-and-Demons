@@ -1,5 +1,6 @@
 import math
 import os
+import re
 import sys
 
 import pygame
@@ -36,42 +37,167 @@ else:
 
 UI_FONT_PATH = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
 _FONT_CACHE = {}
+_MOJIBAKE_MARKERS = ("Ã", "Â", "Ä", "Æ", "á", "º", "»", "â")
+
+_EXACT_TEXT_REPLACEMENTS = {
+    "Tat ca": "Tất cả",
+    "Mac dinh": "Mặc định",
+    "Nguoi": "Người",
+    "Quay lai": "Quay lại",
+    "Dong so tay": "Đóng sổ tay",
+    "So tay hieu ung": "Sổ tay hiệu ứng",
+    "Thong ke su nghiep": "Thống kê sự nghiệp",
+    "Tran da choi": "Trận đã chơi",
+    "O da mo": "Ô đã mở",
+    "Diem cao nhat": "Điểm cao nhất",
+    "Big swing": "Biến động lớn",
+    "Bang vang": "Bảng vàng",
+    "Top effect": "Top hiệu ứng",
+    "Thanh tuu": "Thành tựu",
+    "Lich su cac van choi": "Lịch sử các ván chơi",
+    "Xoa tat ca": "Xóa tất cả",
+    "Xoa": "Xóa",
+    "Chua co lich su": "Chưa có lịch sử",
+    "Bat dau mot tran moi de lap day bo suu tap ky niem.": "Bắt đầu một trận mới để lấp đầy bộ sưu tập kỷ niệm.",
+    "8 hieu ung co san": "8 hiệu ứng có sẵn",
+    "Chi co trong custom": "Chỉ có trong custom",
+    "Custom only": "Chỉ có trong custom",
+    "Che do thuong luon dung 8 hieu ung nay.": "Chế độ thường luôn dùng 8 hiệu ứng này.",
+    "Nhom chien thuat dac biet, chi mo trong custom va challenge mo rong.": "Nhóm chiến thuật đặc biệt, chỉ mở trong custom và challenge mở rộng.",
+    "Nhan B hoac Esc de dong. Day la bang mo ta nhanh de tra effect trong luc choi.": "Nhấn B hoặc Esc để đóng. Đây là bảng mô tả nhanh để tra hiệu ứng trong lúc chơi.",
+    "Re chuot vao tung effect de xem mo ta nhanh. Phim 1-3 de doi bo loc, mui ten de cuon.": "Rê chuột vào từng hiệu ứng để xem mô tả nhanh. Phím 1-3 để đổi bộ lọc, mũi tên để cuộn.",
+    "Preset nhanh cho van nguoi voi nguoi": "Preset nhanh cho ván người với người",
+    "Nhap danh sach nguoi choi cho van dau nguoi voi nguoi.": "Nhập danh sách người chơi cho ván đấu người với người.",
+    "Tab de doi o nhap. Nhan Enter khi da dien du ten moi nguoi choi.": "Tab để đổi ô nhập. Nhấn Enter khi đã điền đủ tên mọi người chơi.",
+    "Che do va luat choi": "Chế độ và luật chơi",
+    "Chon kieu tran dau, cach quay luot va challenge preset neu can.": "Chọn kiểu trận đấu, cách quay lượt và challenge preset nếu cần.",
+    "Challenge su dung luat quay luot co san de giu dung nhip do cua tung mau.": "Challenge sử dụng luật quay lượt có sẵn để giữ đúng nhịp độ của từng mẫu.",
+    "1-3 che do | A-S luot": "1-3 chế độ | A-S lượt",
+    "1-3 che do | A-S luot | <- -> mau": "1-3 chế độ | A-S lượt | <- -> mẫu",
+    "Vao game nhanh voi preset tran va layout moi.": "Vào game nhanh với preset trận và layout mới.",
+    "Danh cho cac keo PvP dai hoi va can ti so ro rang.": "Dành cho các kèo PvP dài hơi và cần tỉ số rõ ràng.",
+    "Bo loc nay chua co preset nao. Nhan 1-4 de doi bo loc hoac N de tao moi.": "Bộ lọc này chưa có preset nào. Nhấn 1-4 để đổi bộ lọc hoặc N để tạo mới.",
+    "N tao moi | 1-4 de loc preset | bo loc nay dang trong": "N tạo mới | 1-4 để lọc preset | bộ lọc này đang trống",
+    "Chua co nguoi choi nao duoc luu thong ke.": "Chưa có người chơi nào được lưu thống kê.",
+    "Chua mo khoa thanh tuu nao. Choi them de lap day bang vang.": "Chưa mở khóa thành tựu nào. Chơi thêm để lấp đầy bảng vàng.",
+    "Dat ten che do": "Đặt tên chế độ",
+    "So nguoi choi": "Số người chơi",
+    "Kieu den luot": "Kiểu đến lượt",
+    "Chon cach xac dinh nguoi mo o tiep theo va layout cho custom mode.": "Chọn cách xác định người mở ô tiếp theo và layout cho custom mode.",
+    "Chinh ti le hieu ung": "Chỉnh tỉ lệ hiệu ứng",
+    "8 hieu ung mac dinh + nhom dac biet chi xuat hien o custom.": "8 hiệu ứng mặc định + nhóm đặc biệt chỉ xuất hiện ở custom.",
+    "Them effect moi": "Thêm hiệu ứng mới",
+    "Dat ten, chon loai tac dong va gia tri. Co them ca effect chien thuat.": "Đặt tên, chọn loại tác động và giá trị. Có thêm cả hiệu ứng chiến thuật.",
+    "Ten effect": "Tên hiệu ứng",
+    "Gia tri / so lan": "Giá trị / số lần",
+    "Luu che do nay?": "Lưu chế độ này?",
+    "Chon nguoi choi, layout va nhip do tran dau truoc khi vao san.": "Chọn người chơi, layout và nhịp độ trận đấu trước khi vào sân.",
+}
+
+_REGEX_TEXT_REPLACEMENTS = [
+    (re.compile(r"^Tran (\d+) -"), r"Trận \1 -"),
+    (re.compile(r"^Thang:"), "Thắng:"),
+    (re.compile(r"\bLan luot\b"), "Lần lượt"),
+    (re.compile(r"\bThong tin van\b"), "Thông tin ván"),
+    (re.compile(r"\b(\d+) diem\b"), r"\1 điểm"),
+    (re.compile(r"\b(\d+) thang\b"), r"\1 thắng"),
+    (re.compile(r"\b(\d+) nguoi\b"), r"\1 người"),
+    (re.compile(r"\b(\d+) o\b"), r"\1 ô"),
+    (re.compile(r"\bo da mo\b"), "ô đã mở"),
+    (re.compile(r"\bThanh tuu moi:"), "Thành tựu mới:"),
+    (re.compile(r"\bTop effect:"), "Top hiệu ứng:"),
+]
+
+
+class LocalizedFont:
+    def __init__(self, font):
+        self._font = font
+
+    def _clean(self, text):
+        return normalize_display_text(text)
+
+    def render(self, text, antialias, color, background=None):
+        clean_text = self._clean(text)
+        if background is None:
+            return self._font.render(clean_text, antialias, color)
+        return self._font.render(clean_text, antialias, color, background)
+
+    def size(self, text):
+        return self._font.size(self._clean(text))
+
+    def __getattr__(self, name):
+        return getattr(self._font, name)
+
+
+def localize_font(font):
+    if isinstance(font, LocalizedFont):
+        return font
+    return LocalizedFont(font)
 
 
 def normalize_display_text(text):
     value = str(text or "")
-    if not any(marker in value for marker in ("Ã", "Â", "Ä", "Æ", "á", "º", "»", "â")):
-        return value
-
     fixed = value
-    for _ in range(2):
-        try:
-            repaired = fixed.encode("latin1").decode("utf-8")
-        except (UnicodeEncodeError, UnicodeDecodeError):
-            break
-        if repaired == fixed:
-            break
-        fixed = repaired
+    if any(marker in value for marker in _MOJIBAKE_MARKERS):
+        for _ in range(2):
+            try:
+                repaired = fixed.encode("latin1").decode("utf-8")
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                break
+            if repaired == fixed:
+                break
+            fixed = repaired
+
+    stripped = fixed.strip()
+    if fixed in _EXACT_TEXT_REPLACEMENTS:
+        fixed = _EXACT_TEXT_REPLACEMENTS[fixed]
+    elif stripped in _EXACT_TEXT_REPLACEMENTS:
+        leading = len(fixed) - len(fixed.lstrip())
+        trailing = len(fixed) - len(fixed.rstrip())
+        suffix = fixed[len(fixed) - trailing:] if trailing else ""
+        fixed = f"{fixed[:leading]}{_EXACT_TEXT_REPLACEMENTS[stripped]}{suffix}"
+
+    for pattern, replacement in _REGEX_TEXT_REPLACEMENTS:
+        fixed = pattern.sub(replacement, fixed)
     return fixed
 
 
 def get_ui_font(size, bold=False, italic=False):
-    cache_key = (int(size), bool(bold), bool(italic))
+    if not pygame.font.get_init():
+        pygame.font.init()
+
+    cache_key = ("ui", int(size), bool(bold), bool(italic))
     if cache_key in _FONT_CACHE:
         return _FONT_CACHE[cache_key]
 
     try:
-        adjustment = 2 if int(size) >= 14 else 1
-        adjusted_size = max(10, int(size) - adjustment)
-        font = pygame.font.Font(UI_FONT_PATH, adjusted_size)
+        font = pygame.font.SysFont(
+            ["Segoe UI", "Tahoma", "Arial", "Arial Unicode MS", "Noto Sans", "DejaVu Sans"],
+            int(size),
+            bold=bold,
+            italic=italic,
+        )
     except Exception:
         try:
-            font = pygame.font.SysFont(["segoeui", "calibri", "arial"], size, bold=bold, italic=italic)
+            font = pygame.font.Font(UI_FONT_PATH, int(size))
+            if bold:
+                font.set_bold(True)
+            if italic:
+                font.set_italic(True)
         except Exception:
-            font = pygame.font.Font(None, size)
+            font = pygame.font.Font(None, int(size))
+            if bold:
+                font.set_bold(True)
+            if italic:
+                font.set_italic(True)
 
-    _FONT_CACHE[cache_key] = font
-    return font
+    localized_font = localize_font(font)
+    _FONT_CACHE[cache_key] = localized_font
+    return localized_font
+
+
+def get_title_font(size, italic=False):
+    return get_ui_font(size, bold=True, italic=italic)
 
 
 def clamp_text(font, text, max_width, suffix="..."):

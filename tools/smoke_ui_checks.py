@@ -55,6 +55,7 @@ from ui.theme import draw_scrollbar
 from ui.theme import get_reveal_progress
 from ui.theme import get_reveal_rect
 from ui.theme import get_ui_font
+from ui.theme import normalize_display_text
 
 
 def build_setup_state(**overrides):
@@ -201,7 +202,7 @@ def assert_filter_helpers():
     builtin_sections = build_effect_sections("builtin")
     custom_sections = build_effect_sections("custom")
     assert len(all_sections) == 2
-    assert len(builtin_sections) == 1 and "co san" in builtin_sections[0][0]
+    assert len(builtin_sections) == 1 and "có sẵn" in builtin_sections[0][0]
     assert len(custom_sections) == 1 and "custom" in custom_sections[0][0].lower()
 
     sample_history = [
@@ -225,6 +226,15 @@ def assert_animation_helpers():
     assert reduced_progress == 1.0
     moved_rect = get_reveal_rect(pygame.Rect(10, 20, 30, 40), 0.5, offset_y=20, offset_x=10)
     assert moved_rect.x >= 10 and moved_rect.y >= 20
+
+
+def assert_font_localization():
+    assert normalize_display_text("Tat ca") == "Tất cả"
+    assert normalize_display_text("NgÆ°á»i 1").startswith("Người")
+
+    font = get_ui_font(16, bold=True)
+    assert font.size("Tat ca") == font.size("Tất cả")
+    assert font.size("Thong tin van") == font.size("Thông tin ván")
 
 
 def assert_result_meta():
@@ -348,6 +358,7 @@ def main():
     assert_custom_mode_helpers()
     assert_filter_helpers()
     assert_animation_helpers()
+    assert_font_localization()
     assert_result_meta()
     render_smoke_surface()
     print("smoke_ui_checks: ok")

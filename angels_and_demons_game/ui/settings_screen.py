@@ -19,6 +19,7 @@ from ui.theme import draw_hint_bar
 from ui.theme import draw_panel
 from ui.theme import draw_scrollbar
 from ui.theme import draw_title
+from ui.theme import get_title_font
 from ui.theme import get_ui_font
 from ui.theme import get_reveal_progress
 from ui.theme import get_reveal_rect
@@ -63,8 +64,7 @@ def show_settings_screen():
     screen = create_display(MENU_WINDOW_SIZE, "Cài đặt", fullscreen=settings.get("fullscreen", False))
     apply_window_icon()
 
-    font_path = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
-    title_font = pygame.font.Font(font_path, 28)
+    title_font = get_title_font(28)
     font = get_ui_font(15, bold=True)
     small_font = get_ui_font(11)
     tiny_font = get_ui_font(10)

@@ -49,7 +49,9 @@ from ui.theme import draw_panel
 from ui.theme import draw_scrollbar
 from ui.theme import draw_sparkle
 from ui.theme import draw_star
+from ui.theme import get_title_font
 from ui.theme import get_ui_font
+from ui.theme import normalize_display_text as normalize_theme_text
 
 
 os.environ["SDL_VIDEO_CENTERED"] = "1"
@@ -94,20 +96,7 @@ def render_text(surface, font, text, pos, color):
 
 
 def normalize_display_text(text):
-    value = str(text or "")
-    if not any(marker in value for marker in ("Ã", "Â", "Ä", "Æ", "á", "º", "»", "â")):
-        return value
-
-    fixed = value
-    for _ in range(2):
-        try:
-            repaired = fixed.encode("latin1").decode("utf-8")
-        except (UnicodeEncodeError, UnicodeDecodeError):
-            break
-        if repaired == fixed:
-            break
-        fixed = repaired
-    return fixed
+    return normalize_theme_text(text)
 
 
 def get_effect_icon_key(effect_id):
@@ -298,7 +287,9 @@ def build_result_meta_chips(session, series_state=None):
     if session.mode_variant == "challenge" and session.challenge_title:
         chips.insert(1, (session.challenge_title, (249, 236, 224), PALETTE["peach"], PALETTE["text"]))
     elif series_state:
-        score_text = "Tỉ số " + ", ".join(f"{name}:{wins}" for name, wins in sorted(series_state["wins"].items(), key=lambda item: (-item[1], item[0])))
+        score_text = "Tỉ số " + ", ".join(
+            f"{name}:{wins}" for name, wins in sorted(series_state["wins"].items(), key=lambda item: (-item[1], item[0]))
+        )
         chips.append((score_text, (231, 245, 236), PALETTE["mint_dark"], PALETTE["text"]))
     return chips
 
@@ -612,7 +603,7 @@ def draw_help_overlay(surface, title_font, body_font, small_font):
     lines = [
         "Click vao o de mo hieu ung moi.",
         "Manual mode: click tên người chơi bên trái để đổi người mở ô.",
-        "Gap Keo bua bao: nhan 1 de thang, 2 de thua.",
+        "Gặp Kéo búa bao: nhấn 1 để thắng, 2 để thua.",
         "Nhấn H hoặc Esc để đóng bảng này. Nhấn M để tắt tiếng nhanh, B để mở Sổ tay.",
         "Chế độ thường chỉ có 8 effect mặc định.",
         "Chế độ custom có thêm: Lá chắn, Đổi mệnh, Đảo chiều, Tiên tri.",
@@ -1037,7 +1028,7 @@ def draw_result_leaderboard(surface, chart_rect, players, reveal_progress, ui_sm
 
 def draw_result_leaderboard(surface, chart_rect, players, reveal_progress, ui_small_font, ui_tiny_font, scroll_y=0):
     header_rect = pygame.Rect(chart_rect.x + 16, chart_rect.y + 12, chart_rect.width - 32, 30)
-    render_text(surface, ui_small_font, "Bang xep hang", (header_rect.x, header_rect.y + 4), PALETTE["text"])
+    render_text(surface, ui_small_font, "Bảng xếp hạng", (header_rect.x, header_rect.y + 4), PALETTE["text"])
     draw_tag_chip(surface, ui_tiny_font, pygame.Rect(header_rect.right - 126, header_rect.y, 126, 26), f"{len(players)} nguoi choi", (255, 241, 224), PALETTE["gold_dark"])
 
     body_rect = pygame.Rect(chart_rect.x, chart_rect.y + 44, chart_rect.width, chart_rect.height - 52)
@@ -1126,7 +1117,7 @@ def show_series_round_result(screen, fonts, session, series_state):
     title_font = fonts["title"]
     font = fonts["font"]
     small_font = fonts["small"]
-    tiny_font = pygame.font.Font(font.path, 14) if hasattr(font, "path") else font
+    tiny_font = get_ui_font(14)
     play_music("result", force_restart=True)
 
     winner = max(session.players, key=lambda player: player.score) if session.players else None
@@ -1154,7 +1145,7 @@ def show_series_round_result(screen, fonts, session, series_state):
 
         continue_rect = pygame.Rect(panel_rect.centerx - 200, panel_rect.bottom - 66, 180, 42)
         quit_rect = pygame.Rect(panel_rect.centerx + 20, panel_rect.bottom - 66, 180, 42)
-        draw_button(screen, font, continue_rect, "Van tiep", PALETTE["mint"], PALETTE["mint_dark"], continue_rect.collidepoint(pygame.mouse.get_pos()), PALETTE["text"])
+        draw_button(screen, font, continue_rect, "Ván tiếp", PALETTE["mint"], PALETTE["mint_dark"], continue_rect.collidepoint(pygame.mouse.get_pos()), PALETTE["text"])
         draw_button(screen, font, quit_rect, "Dung series", PALETTE["crimson"], PALETTE["crimson_dark"], quit_rect.collidepoint(pygame.mouse.get_pos()), PALETTE["text"])
 
         pygame.display.flip()
@@ -1810,12 +1801,11 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SE
     screen = create_display(GAME_WINDOW_SIZE, "Ván chơi", fullscreen=settings.get("fullscreen", False))
     apply_window_icon()
 
-    font_path = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
     fonts = {
-        "title": pygame.font.Font(font_path, 30),
-        "font": pygame.font.Font(font_path, 18),
-        "small": pygame.font.Font(font_path, 15),
-        "tiny": pygame.font.Font(font_path, 12),
+        "title": get_title_font(30),
+        "font": get_ui_font(18, bold=True),
+        "small": get_ui_font(15),
+        "tiny": get_ui_font(12),
         "ui": get_ui_font(18, bold=True),
         "ui_small": get_ui_font(14),
         "ui_tiny": get_ui_font(12),
@@ -1887,9 +1877,8 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SE
 def show_final_result(screen, title_font, font, session, series_state=None):
     play_music("result", force_restart=True)
     players = sorted(session.players, key=lambda player: player.score, reverse=True)
-    font_path = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
-    small_font = pygame.font.Font(font_path, 16)
-    tiny_font = pygame.font.Font(font_path, 14)
+    small_font = get_ui_font(16)
+    tiny_font = get_ui_font(14)
     ui_font = get_ui_font(18, bold=True)
     ui_small_font = get_ui_font(14)
     ui_tiny_font = get_ui_font(12)
@@ -2058,9 +2047,8 @@ def show_final_result(screen, title_font, font, session, series_state=None):
 def show_final_result(screen, title_font, font, session, series_state=None):
     play_music("result", force_restart=True)
     players = sorted(session.players, key=lambda player: player.score, reverse=True)
-    font_path = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
-    small_font = pygame.font.Font(font_path, 16)
-    tiny_font = pygame.font.Font(font_path, 14)
+    small_font = get_ui_font(16)
+    tiny_font = get_ui_font(14)
     ui_font = get_ui_font(18, bold=True)
     ui_small_font = get_ui_font(14)
     ui_tiny_font = get_ui_font(12)
@@ -2170,7 +2158,7 @@ def show_final_result(screen, title_font, font, session, series_state=None):
             draw_tag_chip(screen, ui_tiny_font, rank_chip_rect, str(index + 1), rank_fill, rank_border)
 
             if index < 3:
-                badge_text = ["Dau bang", "Top 2", "Top 3"][index]
+                badge_text = ["Đầu bảng", "Top 2", "Top 3"][index]
                 badge_surface = ui_tiny_font.render(badge_text, True, PALETTE["muted"])
                 screen.blit(badge_surface, (rank_chip_rect.right + 10, row_rect.y + 4))
 
@@ -2229,6 +2217,228 @@ def show_final_result(screen, title_font, font, session, series_state=None):
         else:
             hint_rect = pygame.Rect(panel_rect.x + 38, panel_rect.bottom - 104, panel_rect.width - 76, 34)
             draw_hint_bar(screen, ui_tiny_font, hint_rect, "Con lÄƒn hoáº·c mÅ©i tÃªn Ä‘á»ƒ cuá»™n toÃ n bá»™ káº¿t quáº£ | Enter/Space Ä‘á»ƒ chÆ¡i láº¡i | Esc Ä‘á»ƒ thoÃ¡t")
+
+        content_scroll_y = max(0, min(content_scroll_y, max_scroll))
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return "quit"
+            if event.type == pygame.KEYDOWN and event.key in {pygame.K_RETURN, pygame.K_SPACE}:
+                return "rematch"
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                return "quit"
+            if event.type == pygame.KEYDOWN and event.key in {pygame.K_UP, pygame.K_w}:
+                content_scroll_y = max(0, content_scroll_y - scroll_speed)
+            if event.type == pygame.KEYDOWN and event.key in {pygame.K_DOWN, pygame.K_s}:
+                content_scroll_y = min(max_scroll, content_scroll_y + scroll_speed)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_PAGEUP:
+                content_scroll_y = max(0, content_scroll_y - max(120, viewport_rect.height - 100))
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_PAGEDOWN:
+                content_scroll_y = min(max_scroll, content_scroll_y + max(120, viewport_rect.height - 100))
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_HOME:
+                content_scroll_y = 0
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_END:
+                content_scroll_y = max_scroll
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if replay_rect.collidepoint(event.pos):
+                    return "rematch"
+                if exit_rect.collidepoint(event.pos):
+                    return "quit"
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 4:
+                content_scroll_y = max(0, content_scroll_y - scroll_speed)
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 5:
+                content_scroll_y = min(max_scroll, content_scroll_y + scroll_speed)
+            if event.type == pygame.MOUSEWHEEL:
+                content_scroll_y = max(0, min(max_scroll, content_scroll_y - event.y * scroll_speed))
+
+
+# Ghi đè định nghĩa cũ để bảo toàn chữ tiếng Việt có dấu ở màn kết quả cuối.
+def show_final_result(screen, title_font, font, session, series_state=None):
+    play_music("result", force_restart=True)
+    players = sorted(session.players, key=lambda player: player.score, reverse=True)
+    ui_font = get_ui_font(18, bold=True)
+    ui_small_font = get_ui_font(14)
+    ui_tiny_font = get_ui_font(12)
+    animation_start = pygame.time.get_ticks()
+    effect_rows = get_effect_summary_rows(session, limit=3)
+    emblem_surface = get_surface("brand_emblem", (76, 76))
+    angel_badge = get_surface("angel_badge", (32, 32))
+    demon_badge = get_surface("demon_badge", (32, 32))
+    content_scroll_y = 0
+    scroll_speed = 36
+
+    while True:
+        tick = pygame.time.get_ticks()
+        reveal_progress = min(1.0, (tick - animation_start) / 900)
+        draw_background(screen, tick)
+        mouse_pos = pygame.mouse.get_pos()
+
+        panel_rect = pygame.Rect(100, 54, screen.get_width() - 200, screen.get_height() - 108)
+        draw_panel(screen, panel_rect, fill_color=(248, 241, 225), border_color=PALETTE["gold_dark"], radius=30)
+        render_text(screen, title_font, "Kết quả cuối cùng", (panel_rect.x + 36, panel_rect.y + 24), PALETTE["text"])
+        if emblem_surface is not None:
+            screen.blit(emblem_surface, (panel_rect.right - 110, panel_rect.y + 18))
+
+        winner = players[0]
+        winner_text = f"Người thắng: {winner.name} - {winner.score} điểm"
+        if series_state and series_state.get("champion"):
+            winner_text = f"Vô địch series: {series_state['champion']} | Vòng {series_state.get('round_number', 1)}"
+        render_text(screen, ui_small_font, winner_text, (panel_rect.x + 38, panel_rect.y + 72), PALETTE["muted"])
+
+        viewport_rect = pygame.Rect(panel_rect.x + 34, panel_rect.y + 98, panel_rect.width - 68, panel_rect.height - 218)
+        previous_clip = screen.get_clip()
+        screen.set_clip(viewport_rect)
+
+        y = viewport_rect.y + 2 - content_scroll_y
+        summary_hitboxes = []
+        achievement_rect = None
+
+        meta_rect = pygame.Rect(viewport_rect.x + 4, y, viewport_rect.width - 18, 84)
+        meta_height = draw_result_meta_block(screen, ui_tiny_font, ui_tiny_font, meta_rect, session, series_state)
+        y += meta_height + 14
+
+        stat_cards = get_stat_cards(players)
+        stat_gap = 16
+        stat_width = (viewport_rect.width - 18 - stat_gap) // 2
+        stat_height = 92
+        for index, (title, name, detail) in enumerate(stat_cards):
+            row = index // 2
+            col = index % 2
+            card_rect = pygame.Rect(viewport_rect.x + 4 + col * (stat_width + stat_gap), y + row * (stat_height + 12), stat_width, stat_height)
+            accent = [PALETTE["gold"], PALETTE["azure"], PALETTE["mint"], PALETTE["crimson"]][index % 4]
+            fill = {
+                PALETTE["gold"]: (247, 239, 212),
+                PALETTE["azure"]: (220, 230, 245),
+                PALETTE["mint"]: (221, 236, 228),
+                PALETTE["crimson"]: (243, 223, 226),
+            }[accent]
+            draw_panel(screen, card_rect, fill_color=fill, border_color=accent, radius=20, shadow=False)
+            render_text(screen, ui_tiny_font, title, (card_rect.x + 14, card_rect.y + 10), PALETTE["muted"])
+            render_text(screen, ui_font, truncate_text(ui_font, name, card_rect.width - 28), (card_rect.x + 14, card_rect.y + 28), PALETTE["text"])
+            render_text(screen, ui_small_font, detail, (card_rect.x + 14, card_rect.y + 56), PALETTE["text"])
+        y += stat_height * 2 + 24
+
+        if effect_rows:
+            summary_rect = pygame.Rect(viewport_rect.x + 4, y, viewport_rect.width - 18, 60)
+            summary_hitboxes = draw_effect_summary(screen, ui_tiny_font, ui_small_font, summary_rect, effect_rows)
+            y = summary_rect.bottom + 16
+
+        if session.unlocked_achievements:
+            achievement_rect = pygame.Rect(viewport_rect.x + 4, y, viewport_rect.width - 18, 70)
+            draw_panel(screen, achievement_rect, fill_color=(231, 245, 236), border_color=PALETTE["mint_dark"], radius=20, shadow=False)
+            titles = ", ".join(item.get("title", "") for item in session.unlocked_achievements[:2])
+            if len(session.unlocked_achievements) > 2:
+                titles = f"{titles} +{len(session.unlocked_achievements) - 2}"
+            render_text(screen, ui_tiny_font, "Thành tựu mới", (achievement_rect.x + 14, achievement_rect.y + 10), PALETTE["muted"])
+            render_text(screen, ui_small_font, truncate_text(ui_small_font, titles, achievement_rect.width - 28), (achievement_rect.x + 14, achievement_rect.y + 32), PALETTE["text"])
+            y = achievement_rect.bottom + 16
+
+        if session.profile_summary:
+            profile_rect = pygame.Rect(viewport_rect.x + 4, y, viewport_rect.width - 18, 96)
+            draw_result_profile_strip(screen, ui_tiny_font, ui_small_font, profile_rect, session.profile_summary)
+            y = profile_rect.bottom + 20
+
+        leaderboard_title_rect = pygame.Rect(viewport_rect.x + 4, y, viewport_rect.width - 18, 34)
+        render_text(screen, ui_small_font, "Bảng xếp hạng", (leaderboard_title_rect.x + 4, leaderboard_title_rect.y + 4), PALETTE["text"])
+        draw_tag_chip(
+            screen,
+            ui_tiny_font,
+            pygame.Rect(leaderboard_title_rect.right - 126, leaderboard_title_rect.y, 126, 26),
+            f"{len(players)} người chơi",
+            (255, 241, 224),
+            PALETTE["gold_dark"],
+        )
+        y = leaderboard_title_rect.bottom + 8
+
+        row_gap = 10
+        row_height = 36
+        row_width = viewport_rect.width - 28
+        rank_width = 44
+        score_width = 122
+        name_width = max(160, int(row_width * 0.28))
+        min_score = min(player.score for player in players)
+        score_offset = -min(0, min_score)
+        max_score = max(1, max(player.score + score_offset for player in players))
+        colors = [PALETTE["gold"], PALETTE["azure"], PALETTE["mint"]]
+
+        for index, player in enumerate(players):
+            row_rect = pygame.Rect(viewport_rect.x + 4, y, row_width, row_height)
+            rank_chip_rect = pygame.Rect(row_rect.x + 8, row_rect.y + 7, rank_width, 22)
+            rank_fill = colors[index] if index < 3 else (238, 230, 214)
+            rank_border = PALETTE["gold_dark"] if index == 0 else PALETTE["panel_dark"]
+            row_fill = (250, 244, 231) if index == 0 else (246, 239, 225) if index % 2 == 0 else (243, 235, 220)
+            row_border = PALETTE["gold_dark"] if index == 0 else PALETTE["panel_dark"]
+            draw_panel(screen, row_rect, fill_color=row_fill, border_color=row_border, radius=14, shadow=False)
+            draw_tag_chip(screen, ui_tiny_font, rank_chip_rect, str(index + 1), rank_fill, rank_border)
+
+            if index < 3:
+                badge_text = ["Đầu bảng", "Top 2", "Top 3"][index]
+                badge_surface = ui_tiny_font.render(badge_text, True, PALETTE["muted"])
+                screen.blit(badge_surface, (rank_chip_rect.right + 10, row_rect.y + 4))
+
+            name_text = truncate_text(ui_small_font, player.name, name_width)
+            name_surface = ui_small_font.render(name_text, True, PALETTE["text"])
+            screen.blit(name_surface, (rank_chip_rect.right + 10, row_rect.y + row_height - name_surface.get_height() - 6))
+
+            track_left = row_rect.x + rank_width + name_width + 32
+            track_right = row_rect.right - score_width - 12
+            track_width = max(110, track_right - track_left)
+            track_rect = pygame.Rect(track_left, row_rect.y + 10, track_width, 16)
+            normalized_score = player.score + score_offset
+            raw_width = max(12, int(track_rect.width * (normalized_score / max_score))) if normalized_score > 0 else 0
+            fill_width = int(raw_width * reveal_progress)
+            fill_rect = pygame.Rect(track_rect.x, track_rect.y, fill_width, track_rect.height)
+            bar_color = colors[index] if index < 3 else (190, 174, 145)
+            pygame.draw.rect(screen, (220, 210, 190), track_rect, border_radius=12)
+            if fill_width > 0:
+                pygame.draw.rect(screen, bar_color, fill_rect, border_radius=12)
+                pygame.draw.rect(screen, PALETTE["panel_dark"], fill_rect, 1, border_radius=12)
+            pygame.draw.rect(screen, PALETTE["panel_dark"], track_rect, 1, border_radius=12)
+
+            score_surface = ui_small_font.render(f"{player.score} điểm", True, PALETTE["text"])
+            screen.blit(score_surface, (row_rect.right - score_surface.get_width() - 10, row_rect.y + (row_height - score_surface.get_height()) // 2))
+            y += row_height + row_gap
+
+        content_height = max(0, y - (viewport_rect.y + 2 - content_scroll_y) + 8)
+        max_scroll = max(0, content_height - viewport_rect.height)
+        screen.set_clip(previous_clip)
+        draw_scrollbar(
+            screen,
+            pygame.Rect(viewport_rect.right - 10, viewport_rect.y + 6, 8, viewport_rect.height - 12),
+            content_height,
+            viewport_rect.height,
+            content_scroll_y,
+            accent_color=PALETTE["gold_dark"],
+        )
+
+        replay_rect = pygame.Rect(screen.get_width() // 2 - 190, panel_rect.bottom - 58, 170, 42)
+        exit_rect = pygame.Rect(screen.get_width() // 2 + 20, panel_rect.bottom - 58, 170, 42)
+        draw_button(screen, ui_font, replay_rect, "Chơi lại", PALETTE["mint"], PALETTE["mint_dark"], replay_rect.collidepoint(mouse_pos), PALETTE["text"])
+        draw_button(screen, ui_font, exit_rect, "Thoát", PALETTE["crimson"], PALETTE["crimson_dark"], exit_rect.collidepoint(mouse_pos), PALETTE["text"])
+        if angel_badge is not None:
+            screen.blit(angel_badge, (replay_rect.x - 42, replay_rect.y + 5))
+        if demon_badge is not None:
+            screen.blit(demon_badge, (exit_rect.right + 10, exit_rect.y + 5))
+
+        hovered_summary = next((item for item in summary_hitboxes if item["rect"].collidepoint(mouse_pos)), None)
+        if hovered_summary is not None:
+            draw_hover_tooltip_with_detail(
+                screen,
+                ui_small_font,
+                ui_tiny_font,
+                hovered_summary["title"],
+                f"{get_effect_help(hovered_summary['effect_id'])} {hovered_summary['detail']}",
+                mouse_pos,
+                effect_id=hovered_summary["effect_id"],
+                max_width=320,
+            )
+        elif achievement_rect is not None and achievement_rect.collidepoint(mouse_pos) and session.unlocked_achievements:
+            achievement_titles = ", ".join(item.get("title", "") for item in session.unlocked_achievements)
+            draw_hover_tooltip_with_detail(screen, ui_small_font, ui_tiny_font, "Thành tựu mới", achievement_titles, mouse_pos, max_width=320)
+        else:
+            hint_rect = pygame.Rect(panel_rect.x + 38, panel_rect.bottom - 104, panel_rect.width - 76, 34)
+            draw_hint_bar(screen, ui_tiny_font, hint_rect, "Con lăn hoặc mũi tên để cuộn toàn bộ kết quả | Enter/Space để chơi lại | Esc để thoát")
 
         content_scroll_y = max(0, min(content_scroll_y, max_scroll))
         pygame.display.flip()

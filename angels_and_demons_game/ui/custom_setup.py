@@ -30,6 +30,7 @@ from ui.theme import draw_subtitle
 from ui.theme import draw_title
 from ui.theme import get_reveal_progress
 from ui.theme import get_reveal_rect
+from ui.theme import get_title_font
 from ui.theme import get_ui_font
 from ui.theme import wrap_text
 
@@ -331,8 +332,7 @@ def run_custom_setup_ui():
     screen = create_display(SETUP_WINDOW_SIZE, "Chuẩn bị ván chơi", fullscreen=settings.get("fullscreen", False))
     apply_window_icon()
 
-    font_path = os.path.join(BASE_DIR, "assets", "fonts", "PlaywriteAUNSW-Regular.ttf")
-    title_font = pygame.font.Font(font_path, 26)
+    title_font = get_title_font(26)
     font = get_ui_font(15, bold=True)
     small_font = get_ui_font(11)
     tiny_font = get_ui_font(10)
@@ -371,7 +371,7 @@ def run_custom_setup_ui():
         panel_rect = get_reveal_rect(pygame.Rect(34, 22, screen.get_width() - 68, screen.get_height() - 44), panel_progress, offset_y=20)
         draw_panel(screen, panel_rect, fill_color=(248, 241, 225), border_color=PALETTE["gold_dark"], radius=30)
         draw_title(screen, title_font, "Chuẩn bị ván chơi", (panel_rect.centerx, panel_rect.y + 48), PALETTE["text"])
-        draw_subtitle(screen, small_font, "Chon nguoi choi, layout va nhip do tran dau truoc khi vao san.", (panel_rect.centerx, panel_rect.y + 82))
+        draw_subtitle(screen, small_font, "Chọn người chơi, layout và nhịp độ trận đấu trước khi vào sân.", (panel_rect.centerx, panel_rect.y + 82))
 
         step_labels = [
             ("players", "1. Người chơi"),
@@ -472,7 +472,7 @@ def run_custom_setup_ui():
             screen.set_clip(content_view_rect)
             main_rect = main_rect.move(0, -phase_scroll_y)
             draw_title(screen, font, "Người chơi", (main_rect.centerx, main_rect.y + 34), PALETTE["text"])
-            draw_subtitle(screen, small_font, "Nhap danh sach nguoi choi cho van dau nguoi voi nguoi.", (main_rect.centerx, main_rect.y + 62))
+            draw_subtitle(screen, small_font, "Nhập danh sách người chơi cho ván đấu người với người.", (main_rect.centerx, main_rect.y + 62))
 
             minus_rect = pygame.Rect(main_rect.x + 38, main_rect.y + 90, 46, 38)
             count_rect = pygame.Rect(main_rect.x + 94, main_rect.y + 90, 70, 38)
@@ -632,8 +632,8 @@ def run_custom_setup_ui():
             previous_clip = screen.get_clip()
             screen.set_clip(content_view_rect)
             main_rect = main_rect.move(0, -phase_scroll_y)
-            draw_title(screen, font, "Che do va luat choi", (main_rect.centerx, main_rect.y + 30), PALETTE["text"])
-            draw_subtitle(screen, small_font, "Chon kieu tran dau, cach quay luot va challenge preset neu can.", (main_rect.centerx, main_rect.y + 58))
+            draw_title(screen, font, "Chế độ và luật chơi", (main_rect.centerx, main_rect.y + 30), PALETTE["text"])
+            draw_subtitle(screen, small_font, "Chọn kiểu trận đấu, cách quay lượt và challenge preset nếu cần.", (main_rect.centerx, main_rect.y + 58))
 
             mode_rects = []
             primary_mode_ids = ["standard", "challenge", "best_of_three"]
