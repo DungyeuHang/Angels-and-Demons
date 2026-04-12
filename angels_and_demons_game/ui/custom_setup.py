@@ -549,11 +549,11 @@ def run_custom_setup_ui():
                 phase_scroll_y = 0
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_END:
                 phase_scroll_y = phase_max_scroll
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 4 and (content_view_rect.collidepoint(mouse_pos) or panel_rect.collidepoint(mouse_pos)):
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 4 and (state["phase"] == "players" or content_view_rect.collidepoint(mouse_pos) or panel_rect.collidepoint(mouse_pos)):
                 phase_scroll_y = max(0, phase_scroll_y - scroll_speed)
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 5 and (content_view_rect.collidepoint(mouse_pos) or panel_rect.collidepoint(mouse_pos)):
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 5 and (state["phase"] == "players" or content_view_rect.collidepoint(mouse_pos) or panel_rect.collidepoint(mouse_pos)):
                 phase_scroll_y = min(phase_max_scroll, phase_scroll_y + scroll_speed)
-            elif event.type == pygame.MOUSEWHEEL and (content_view_rect.collidepoint(mouse_pos) or panel_rect.collidepoint(mouse_pos)):
+            elif event.type == pygame.MOUSEWHEEL and (state["phase"] == "players" or content_view_rect.collidepoint(mouse_pos) or panel_rect.collidepoint(mouse_pos)):
                 phase_scroll_y = max(0, min(phase_max_scroll, phase_scroll_y - event.y * scroll_speed))
 
         if state["phase"] != phase_before_events:
@@ -644,6 +644,16 @@ def run_custom_setup_ui():
             draw_hint_bar(screen, tiny_font, helper_rect, helper_text)
             players_content_height = 176 + player_rows * 94 + 14 + 32 + 18
             phase_max_scroll = max(0, players_content_height - content_view_rect.height)
+            if state.get("active_input") == "player_name" and state["player_names"]:
+                focus_row = state["editing"] // per_row
+                focus_top = 176 + focus_row * 94
+                focus_bottom = focus_top + 56
+                view_top = phase_scroll_y
+                view_bottom = phase_scroll_y + content_view_rect.height - 48
+                if focus_top < view_top:
+                    phase_scroll_y = max(0, focus_top)
+                elif focus_bottom > view_bottom:
+                    phase_scroll_y = min(phase_max_scroll, focus_bottom - content_view_rect.height + 48)
             screen.set_clip(previous_clip)
             if phase_max_scroll > 0:
                 draw_scrollbar(

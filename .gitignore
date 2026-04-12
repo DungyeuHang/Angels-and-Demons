@@ -16,3 +16,4 @@ dist/
 .ruff_cache/
 .coverage
 htmlcov/
+/angels_and_demons_game/__pycache__

@@ -589,6 +589,62 @@ def draw_event_feed(surface, title_font, body_font, rect, recent_events):
     return hitboxes
 
 
+def draw_event_feed_scrollable(surface, title_font, body_font, rect, recent_events, scroll_y=0):
+    draw_panel(surface, rect, fill_color=(241, 234, 221), border_color=PALETTE["panel_dark"], radius=18, shadow=False)
+    render_text(surface, title_font, "Nhật ký gần đây", (rect.x + 12, rect.y + 8), PALETTE["muted"])
+
+    body_rect = pygame.Rect(rect.x + 8, rect.y + 30, rect.width - 16, rect.height - 38)
+    if body_rect.height <= 0:
+        return [], 0
+
+    if not recent_events:
+        empty_text = body_font.render("Sự kiện sẽ hiện ở đây sau mỗi lần mở ô.", True, PALETTE["muted"])
+        surface.blit(empty_text, (body_rect.x + 6, body_rect.y + 8))
+        return [], 0
+
+    row_height = max(28, body_font.get_linesize() + 10)
+    row_gap = 6
+    content_height = len(recent_events) * (row_height + row_gap) - row_gap
+    max_scroll = max(0, content_height - body_rect.height)
+    scroll_y = max(0, min(int(scroll_y), max_scroll))
+
+    previous_clip = surface.get_clip()
+    surface.set_clip(body_rect)
+    hitboxes = []
+    for index, event in enumerate(recent_events):
+        row_y = body_rect.y + index * (row_height + row_gap) - scroll_y
+        row_rect = pygame.Rect(body_rect.x + 2, row_y, body_rect.width - 14, row_height)
+        if row_rect.bottom < body_rect.y - 4 or row_rect.top > body_rect.bottom + 4:
+            continue
+        accent_color, fill_color = get_effect_palette(event.get("effect_id"), event.get("message", ""))
+        draw_panel(surface, row_rect, fill_color=fill_color, border_color=accent_color, radius=12, shadow=False)
+        bullet_rect = pygame.Rect(row_rect.x + 8, row_rect.y + 7, 16, 16)
+        draw_panel(surface, bullet_rect, fill_color=(255, 251, 246), border_color=accent_color, radius=8, shadow=False)
+        symbol_surface = title_font.render(get_effect_symbol(event.get("effect_id")), True, PALETTE["text"])
+        surface.blit(symbol_surface, (bullet_rect.centerx - symbol_surface.get_width() // 2, bullet_rect.centery - symbol_surface.get_height() // 2))
+        message_text = truncate_text(body_font, event.get("message", ""), row_rect.width - 42)
+        message_surface = body_font.render(message_text, True, PALETTE["text"])
+        surface.blit(message_surface, (row_rect.x + 32, row_rect.centery - message_surface.get_height() // 2))
+        hitboxes.append(
+            {
+                "rect": row_rect,
+                "effect_id": event.get("effect_id"),
+                "title": event.get("player_name") or "Sự kiện",
+                "detail": event.get("message", ""),
+            }
+        )
+    surface.set_clip(previous_clip)
+    draw_scrollbar(
+        surface,
+        pygame.Rect(body_rect.right - 6, body_rect.y + 2, 8, max(24, body_rect.height - 4)),
+        max(content_height, body_rect.height),
+        body_rect.height,
+        scroll_y,
+        accent_color=PALETTE["gold_dark"],
+    )
+    return hitboxes, max_scroll
+
+
 def draw_help_overlay(surface, title_font, body_font, small_font):
     overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
     overlay.fill((61, 45, 57, 170))
@@ -1186,6 +1242,9 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
         session.flip_duration = 170
     player_list_scroll_y = 0
     player_list_scroll_speed = 34
+    info_panel_scroll_y = 0
+    info_panel_scroll_speed = 30
+    auto_follow_turn = turn_mode == SEQUENTIAL_TURN_MODE
 
     while True:
         tick = pygame.time.get_ticks()
@@ -1240,9 +1299,8 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
         if brand_emblem is not None:
             canvas.blit(brand_emblem, (sidebar_rect.right - 96, sidebar_rect.y + 14))
 
-        info_panel_height = 404
         player_cards_top = sidebar_rect.y + 82
-        players_area_bottom = sidebar_rect.bottom - info_panel_height - 24
+        players_area_bottom = sidebar_rect.bottom - 20
         players_area_height = max(92, players_area_bottom - player_cards_top)
         players_area_rect = pygame.Rect(sidebar_rect.x + 16, player_cards_top, sidebar_rect.width - 24, players_area_height)
         player_card_width = players_area_rect.width - 12
@@ -1250,6 +1308,11 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
         row_gap = 8
         player_list_content_height = max(0, len(session.players) * (player_card_height + row_gap) - row_gap)
         player_list_max_scroll = max(0, player_list_content_height - players_area_rect.height)
+        if auto_follow_turn and session.turn_mode == SEQUENTIAL_TURN_MODE and session.current_player is not None:
+            target_scroll = session.current_player * (player_card_height + row_gap) - max(0, (players_area_rect.height - player_card_height) // 2)
+            target_scroll = max(0, min(target_scroll, player_list_max_scroll))
+            player_list_scroll_y = target_scroll
+            auto_follow_turn = False
         player_list_scroll_y = max(0, min(player_list_scroll_y, player_list_max_scroll))
 
         player_hitboxes = []
@@ -1330,8 +1393,7 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
                 player_list_scroll_y,
                 accent_color=PALETTE["gold_dark"],
             )
-
-        info_rect = pygame.Rect(sidebar_rect.x + 20, sidebar_rect.bottom - info_panel_height - 20, sidebar_rect.width - 40, info_panel_height)
+        info_rect = pygame.Rect(board_rect.right - 286, board_rect.y + 118, 262, board_rect.height - 180)
         draw_panel(canvas, info_rect, fill_color=(233, 224, 209), border_color=PALETTE["panel_dark"], radius=22, shadow=False)
         render_text(canvas, font, "Thông tin ván", (info_rect.x + 18, info_rect.y + 14), PALETTE["text"])
         draw_star(canvas, (info_rect.right - 18, info_rect.y + 22), 7, PALETTE["gold"])
@@ -1361,30 +1423,6 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
             info_cards[1] = ("Người đến lượt", selected_name)
             info_cards[3] = ("Hướng lượt", get_turn_direction_label(session.turn_direction))
 
-        card_gap = 10
-        card_width = (info_rect.width - 26 - card_gap) // 2
-        card_height = 58
-        card_top = info_rect.y + 42
-        for index, (label, value) in enumerate(info_cards):
-            card_x = info_rect.x + 10 + (index % 2) * (card_width + card_gap)
-            card_y = card_top + (index // 2) * (card_height + 8)
-            card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
-            fill = (246, 239, 229) if index % 2 == 0 else (242, 233, 224)
-            draw_info_card(canvas, ui_tiny_font, ui_small_font, card_rect, label, value, fill, PALETTE["panel_dark"])
-
-        status_rect = pygame.Rect(info_rect.x + 10, info_rect.y + 178, info_rect.width - 20, 32)
-        draw_panel(canvas, status_rect, fill_color=(245, 236, 231), border_color=PALETTE["mint_dark"], radius=14, shadow=False)
-        status_label_surface = ui_tiny_font.render("Trạng thái", True, PALETTE["muted"])
-        status_value_surface = ui_tiny_font.render(truncate_text(ui_tiny_font, status_value, status_rect.width - 112), True, PALETTE["text"])
-        canvas.blit(status_label_surface, (status_rect.x + 10, status_rect.centery - status_label_surface.get_height() // 2))
-        canvas.blit(status_value_surface, (status_rect.x + 88, status_rect.centery - status_value_surface.get_height() // 2))
-
-        summary_rect = pygame.Rect(info_rect.x + 10, info_rect.y + 216, info_rect.width - 20, 74)
-        summary_hitboxes = draw_effect_summary(canvas, ui_tiny_font, ui_small_font, summary_rect, get_effect_summary_rows(session, limit=3))
-
-        feed_rect = pygame.Rect(info_rect.x + 10, info_rect.y + 296, info_rect.width - 20, 78)
-        feed_hitboxes = draw_event_feed(canvas, ui_tiny_font, ui_tiny_font, feed_rect, session.recent_events)
-
         if session.waiting_effect_input:
             helper_text = "Nhấn 1 nếu thắng, 2 nếu thua."
         elif session.help_visible:
@@ -1397,7 +1435,75 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
             helper_text = "Bàn ô sẽ mở cho người đang được chọn."
         else:
             helper_text = "H: Trợ giúp | B: Sổ tay | T: Tooltip | M: Tắt âm"
-        helper_rect = pygame.Rect(info_rect.x + 10, info_rect.bottom - 42, info_rect.width - 20, 36)
+
+        info_content_rect = pygame.Rect(info_rect.x + 8, info_rect.y + 40, info_rect.width - 16, info_rect.height - 48)
+        summary_hitboxes = []
+        feed_hitboxes = []
+        previous_info_clip = canvas.get_clip()
+        canvas.set_clip(info_content_rect)
+        y = info_content_rect.y + 2 - info_panel_scroll_y
+
+        for index, (label, value) in enumerate(info_cards):
+            card_rect = pygame.Rect(info_rect.x + 10, y, info_rect.width - 20, 50)
+            fill = (246, 239, 229) if index % 2 == 0 else (242, 233, 224)
+            draw_info_card(canvas, ui_tiny_font, ui_small_font, card_rect, label, value, fill, PALETTE["panel_dark"])
+            y = card_rect.bottom + 8
+
+        status_rect = pygame.Rect(info_rect.x + 10, y, info_rect.width - 20, 32)
+        draw_panel(canvas, status_rect, fill_color=(245, 236, 231), border_color=PALETTE["mint_dark"], radius=14, shadow=False)
+        status_label_surface = ui_tiny_font.render("Trạng thái", True, PALETTE["muted"])
+        status_value_surface = ui_tiny_font.render(truncate_text(ui_tiny_font, status_value, status_rect.width - 112), True, PALETTE["text"])
+        canvas.blit(status_label_surface, (status_rect.x + 10, status_rect.centery - status_label_surface.get_height() // 2))
+        canvas.blit(status_value_surface, (status_rect.x + 88, status_rect.centery - status_value_surface.get_height() // 2))
+        y = status_rect.bottom + 10
+
+        summary_rect = pygame.Rect(info_rect.x + 10, y, info_rect.width - 20, 74)
+        summary_hitboxes = draw_effect_summary(canvas, ui_tiny_font, ui_small_font, summary_rect, get_effect_summary_rows(session, limit=3))
+        y = summary_rect.bottom + 10
+
+        feed_title_rect = pygame.Rect(info_rect.x + 10, y, info_rect.width - 20, 34)
+        draw_panel(canvas, feed_title_rect, fill_color=(241, 234, 221), border_color=PALETTE["panel_dark"], radius=14, shadow=False)
+        render_text(canvas, ui_tiny_font, "Nhật ký gần đây", (feed_title_rect.x + 12, feed_title_rect.y + 8), PALETTE["muted"])
+        y = feed_title_rect.bottom + 8
+
+        recent_events = session.recent_events or []
+        if recent_events:
+            for event in recent_events:
+                row_rect = pygame.Rect(info_rect.x + 10, y, info_rect.width - 20, 28)
+                accent_color, fill_color = get_effect_palette(event.get("effect_id"), event.get("message", ""))
+                draw_panel(canvas, row_rect, fill_color=fill_color, border_color=accent_color, radius=12, shadow=False)
+                bullet_rect = pygame.Rect(row_rect.x + 8, row_rect.y + 6, 14, 14)
+                draw_panel(canvas, bullet_rect, fill_color=(255, 251, 246), border_color=accent_color, radius=7, shadow=False)
+                symbol_surface = ui_tiny_font.render(get_effect_symbol(event.get("effect_id")), True, PALETTE["text"])
+                canvas.blit(symbol_surface, (bullet_rect.centerx - symbol_surface.get_width() // 2, bullet_rect.centery - symbol_surface.get_height() // 2))
+                message_text = truncate_text(ui_tiny_font, event.get("message", ""), row_rect.width - 40)
+                message_surface = ui_tiny_font.render(message_text, True, PALETTE["text"])
+                canvas.blit(message_surface, (row_rect.x + 28, row_rect.centery - message_surface.get_height() // 2))
+                feed_hitboxes.append({"rect": row_rect, "effect_id": event.get("effect_id"), "title": event.get("player_name") or "Sự kiện", "detail": event.get("message", "")})
+                y = row_rect.bottom + 6
+        else:
+            empty_rect = pygame.Rect(info_rect.x + 10, y, info_rect.width - 20, 34)
+            draw_panel(canvas, empty_rect, fill_color=(241, 234, 221), border_color=PALETTE["panel_dark"], radius=12, shadow=False)
+            render_text(canvas, ui_tiny_font, "Chưa có sự kiện nào để xem lại.", (empty_rect.x + 12, empty_rect.y + 8), PALETTE["muted"])
+            y = empty_rect.bottom + 8
+
+        helper_rect = pygame.Rect(info_rect.x + 10, y, info_rect.width - 20, 42)
+        draw_info_helper(canvas, ui_tiny_font, helper_rect, helper_text)
+        y = helper_rect.bottom + 8
+
+        info_content_height = max(info_content_rect.height, y - (info_content_rect.y + 2 - info_panel_scroll_y))
+        info_panel_max_scroll = max(0, info_content_height - info_content_rect.height)
+        info_panel_scroll_y = max(0, min(info_panel_scroll_y, info_panel_max_scroll))
+        canvas.set_clip(previous_info_clip)
+        if info_panel_max_scroll > 0:
+            draw_scrollbar(
+                canvas,
+                pygame.Rect(info_content_rect.right - 6, info_content_rect.y + 2, 8, info_content_rect.height - 4),
+                info_content_height,
+                info_content_rect.height,
+                info_panel_scroll_y,
+                accent_color=PALETTE["gold_dark"],
+            )
         draw_info_helper(canvas, ui_tiny_font, helper_rect, helper_text)
 
         render_text(canvas, title_font, "Bàn chơi", (board_rect.x + 26, board_rect.y + 18), PALETTE["text"])
@@ -1425,7 +1531,7 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
         subtitle_max_width = max(240, subtitle_anchor_x - board_rect.x - 70)
         render_text(canvas, ui_small_font, truncate_text(ui_small_font, subtitle_text, subtitle_max_width), (board_rect.x + 28, board_rect.y + 56), PALETTE["muted"])
 
-        progress_track = pygame.Rect(board_rect.x + 28, board_rect.y + 84, board_rect.width - 430, 16)
+        progress_track = pygame.Rect(board_rect.x + 28, board_rect.y + 84, max(180, info_rect.x - board_rect.x - 72), 16)
         progress_fill = pygame.Rect(progress_track.x, progress_track.y, int(progress_track.width * (len(session.opened) / max(1, len(session.boxes)))), progress_track.height)
         pygame.draw.rect(canvas, (221, 212, 192), progress_track, border_radius=10)
         if progress_fill.width > 0:
@@ -1444,7 +1550,7 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
             legend_rect = pygame.Rect(board_rect.right - 208, board_rect.y + 76, 176, 30)
             draw_header_chip(canvas, ui_tiny_font, legend_rect, "Preview = o duoc soi", (245, 236, 231), PALETTE["azure_dark"], PALETTE["muted"])
 
-        grid_rect = pygame.Rect(board_rect.x + 24, board_rect.y + 118, board_rect.width - 48, board_rect.height - 232)
+        grid_rect = pygame.Rect(board_rect.x + 24, board_rect.y + 118, max(320, info_rect.x - board_rect.x - 40), board_rect.height - 180)
         draw_panel(canvas, grid_rect, fill_color=(232, 223, 207), border_color=PALETTE["panel_dark"], radius=24, shadow=False)
         draw_cloud(canvas, (grid_rect.x + 84, grid_rect.y + 52), 0.42, (255, 247, 244))
         draw_cloud(canvas, (grid_rect.right - 88, grid_rect.bottom - 48), 0.45, (255, 248, 243))
@@ -1693,12 +1799,24 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 4 and players_area_rect.collidepoint(canvas_mouse):
                 player_list_scroll_y = max(0, player_list_scroll_y - player_list_scroll_speed)
+                auto_follow_turn = False
                 continue
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 5 and players_area_rect.collidepoint(canvas_mouse):
                 player_list_scroll_y = min(player_list_max_scroll, player_list_scroll_y + player_list_scroll_speed)
+                auto_follow_turn = False
                 continue
             if event.type == pygame.MOUSEWHEEL and players_area_rect.collidepoint(canvas_mouse):
                 player_list_scroll_y = max(0, min(player_list_max_scroll, player_list_scroll_y - event.y * player_list_scroll_speed))
+                auto_follow_turn = False
+                continue
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 4 and info_rect.collidepoint(canvas_mouse):
+                info_panel_scroll_y = max(0, info_panel_scroll_y - info_panel_scroll_speed)
+                continue
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 5 and info_rect.collidepoint(canvas_mouse):
+                info_panel_scroll_y = min(info_panel_max_scroll, info_panel_scroll_y + info_panel_scroll_speed)
+                continue
+            if event.type == pygame.MOUSEWHEEL and info_rect.collidepoint(canvas_mouse):
+                info_panel_scroll_y = max(0, min(info_panel_max_scroll, info_panel_scroll_y - event.y * info_panel_scroll_speed))
                 continue
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -1734,6 +1852,7 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
                     selected_player = False
                     for index, card_rect in player_hitboxes:
                         if card_rect.collidepoint(pos):
+                            auto_follow_turn = False
                             set_selected_player(session, index, tick)
                             selected_player = True
                             break
