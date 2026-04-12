@@ -1,4 +1,4 @@
-import math
+﻿import math
 import os
 import sys
 
@@ -66,6 +66,8 @@ def focus_player_field(state, index):
 def set_player_count(state, count, focus_new=False):
     previous_count = len(state["player_names"])
     ensure_player_state(state, count)
+    state["player_count_text"] = str(len(state["player_names"]))
+    state["player_count_pristine"] = True
     if focus_new and len(state["player_names"]) > previous_count:
         focus_player_field(state, len(state["player_names"]) - 1)
     else:
@@ -74,6 +76,33 @@ def set_player_count(state, count, focus_new=False):
 
 def clear_all_bots(state):
     state["player_bot_flags"] = [False for _ in state["player_bot_flags"]]
+
+
+def valid_number(text):
+    return str(text).isdigit() and int(text) > 0
+
+
+def append_numeric_fragment(text, fragment):
+    updated = str(text)
+    for char in fragment:
+        if char.isdigit():
+            updated += char
+    return updated
+
+
+def get_setup_num_boxes(state):
+    fallback = MATCH_PRESETS.get(str(state.get("match_preset", "classic")), MATCH_PRESETS["classic"])["num_boxes"]
+    try:
+        return max(1, int(str(state.get("num_boxes_text", fallback)).strip()))
+    except (TypeError, ValueError):
+        return int(fallback)
+
+
+def apply_match_preset(state, preset_id):
+    preset = MATCH_PRESETS.get(str(preset_id), MATCH_PRESETS["classic"])
+    state["match_preset"] = str(preset_id)
+    state["num_boxes_text"] = str(int(preset["num_boxes"]))
+    state["num_boxes_pristine"] = True
 
 
 def make_players(state):
@@ -100,7 +129,7 @@ def get_first_human_name(players):
 def build_launch_payload(state):
     players = make_players(state)
     match_preset = state["match_preset"]
-    num_boxes = MATCH_PRESETS[match_preset]["num_boxes"]
+    num_boxes = get_setup_num_boxes(state)
     dist_mode = "even"
     custom_weights = None
     turn_mode = state["turn_mode"]
@@ -208,15 +237,18 @@ def resolve_setup_snapshot(state):
         challenge_label = str(challenge.get("label", "Thử thách"))
 
     match_info = MATCH_PRESETS.get(match_preset, MATCH_PRESETS["classic"])
+    num_boxes = get_setup_num_boxes(state)
     layout_info = BOARD_LAYOUTS.get(layout_id, BOARD_LAYOUTS["classic"])
     slot_count = len(state.get("player_names", []))
+    if mode_variant == "challenge":
+        num_boxes = int(match_info["num_boxes"])
     return {
         "mode_variant": mode_variant,
         "mode_label": MODE_VARIANTS.get(mode_variant, MODE_VARIANTS["standard"])["label"],
         "challenge_label": challenge_label,
         "match_preset": match_preset,
         "match_label": match_info["label"],
-        "num_boxes": int(match_info["num_boxes"]),
+        "num_boxes": int(num_boxes),
         "layout_id": layout_id,
         "layout_label": layout_info["label"],
         "layout_columns": int(layout_info["columns"]),
@@ -288,7 +320,7 @@ def apply_match_hotkey(state, key):
     if pygame.K_1 <= key <= pygame.K_3:
         index = key - pygame.K_1
         if index < len(preset_ids):
-            state["match_preset"] = preset_ids[index]
+            apply_match_preset(state, preset_ids[index])
             return True
     layout_keys = [pygame.K_q, pygame.K_w, pygame.K_e, pygame.K_r]
     if key in layout_keys:
@@ -346,6 +378,11 @@ def run_custom_setup_ui():
         "player_names": [placeholder_name(0), placeholder_name(1)],
         "player_bot_flags": [False, False],
         "editing": 0,
+        "player_count_text": "2",
+        "player_count_pristine": True,
+        "num_boxes_text": str(MATCH_PRESETS["classic"]["num_boxes"]),
+        "num_boxes_pristine": True,
+        "active_input": "player_name",
         "match_preset": "classic",
         "layout_id": "classic",
         "turn_mode": SEQUENTIAL_TURN_MODE,
@@ -415,34 +452,91 @@ def run_custom_setup_ui():
                         "match": "players",
                         "rules": "match",
                     }.get(state["phase"], "players")
+                    state["active_input"] = "player_name" if state["phase"] == "players" else "num_boxes"
                     state["error"] = ""
                 elif event.key == pygame.K_TAB and state["phase"] == "players" and state["player_names"]:
-                    focus_player_field(state, (state["editing"] + 1) % len(state["player_names"]))
-                elif event.key in (pygame.K_BACKSPACE, pygame.K_DELETE) and state["phase"] == "players":
-                    current = state["player_names"][state["editing"]]
-                    state["player_names"][state["editing"]] = current[:-1]
+                    if state["active_input"] == "player_count":
+                        if valid_number(state["player_count_text"]):
+                            set_player_count(state, int(state["player_count_text"]))
+                        state["player_count_text"] = str(len(state["player_names"]))
+                        focus_player_field(state, 0)
+                        state["active_input"] = "player_name"
+                    else:
+                        focus_player_field(state, (state["editing"] + 1) % len(state["player_names"]))
+                        state["active_input"] = "player_name"
+                elif event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
+                    if state["phase"] == "players":
+                        if state["active_input"] == "player_count":
+                            if state.get("player_count_pristine", False):
+                                state["player_count_text"] = ""
+                                state["player_count_pristine"] = False
+                            state["player_count_text"] = state["player_count_text"][:-1]
+                            if valid_number(state["player_count_text"]):
+                                set_player_count(state, int(state["player_count_text"]))
+                        else:
+                            current = state["player_names"][state["editing"]]
+                            state["player_names"][state["editing"]] = current[:-1]
+                    elif state["phase"] == "match" and state.get("active_input") == "num_boxes":
+                        if state.get("num_boxes_pristine", False):
+                            state["num_boxes_text"] = ""
+                            state["num_boxes_pristine"] = False
+                        state["num_boxes_text"] = state["num_boxes_text"][:-1]
                 elif event.key == pygame.K_RETURN:
                     if state["phase"] == "players":
-                        if all(str(name).strip() for name in state["player_names"]):
+                        if state["active_input"] == "player_count":
+                            if valid_number(state["player_count_text"]):
+                                set_player_count(state, int(state["player_count_text"]))
+                                state["player_count_text"] = str(len(state["player_names"]))
+                                state["player_count_pristine"] = True
+                                focus_player_field(state, 0)
+                                state["active_input"] = "player_name"
+                                state["error"] = ""
+                            else:
+                                state["error"] = "Số người chơi phải lớn hơn 0."
+                        elif all(str(name).strip() for name in state["player_names"]):
+                            state["player_count_text"] = str(len(state["player_names"]))
                             state["phase"] = "match"
+                            state["active_input"] = "num_boxes"
                             state["error"] = ""
                             play_sfx("ui_click", volume_multiplier=0.5)
                         else:
                             state["error"] = "Hãy nhập tên cho tất cả người chơi."
                     elif state["phase"] == "match":
-                        state["phase"] = "rules"
-                        state["error"] = ""
-                        play_sfx("ui_click", volume_multiplier=0.5)
+                        if valid_number(state["num_boxes_text"]):
+                            state["num_boxes_text"] = str(get_setup_num_boxes(state))
+                            state["num_boxes_pristine"] = True
+                            state["phase"] = "rules"
+                            state["active_input"] = None
+                            state["error"] = ""
+                            play_sfx("ui_click", volume_multiplier=0.5)
+                        else:
+                            state["error"] = "Số ô phải lớn hơn 0."
                     else:
                         return build_launch_payload(state)
                 elif state["phase"] == "match" and apply_match_hotkey(state, event.key):
                     state["error"] = ""
+                    state["active_input"] = "num_boxes"
                     play_sfx("ui_click", volume_multiplier=0.42)
                 elif state["phase"] == "rules" and apply_rules_hotkey(state, event.key):
                     state["error"] = ""
                     play_sfx("ui_click", volume_multiplier=0.42)
-            elif event.type == pygame.TEXTINPUT and state["phase"] == "players" and state["player_names"]:
-                state["player_names"][state["editing"]] += event.text
+            elif event.type == pygame.TEXTINPUT:
+                if state["phase"] == "players" and state["player_names"]:
+                    if state["active_input"] == "player_count":
+                        if state.get("player_count_pristine", False):
+                            state["player_count_text"] = ""
+                            state["player_count_pristine"] = False
+                        state["player_count_text"] = append_numeric_fragment(state["player_count_text"], event.text)
+                        if valid_number(state["player_count_text"]):
+                            set_player_count(state, int(state["player_count_text"]))
+                            state["player_count_pristine"] = False
+                    else:
+                        state["player_names"][state["editing"]] += event.text
+                elif state["phase"] == "match" and state.get("active_input") == "num_boxes":
+                    if state.get("num_boxes_pristine", False):
+                        state["num_boxes_text"] = ""
+                        state["num_boxes_pristine"] = False
+                    state["num_boxes_text"] = append_numeric_fragment(state["num_boxes_text"], event.text)
             elif event.type == pygame.KEYDOWN and event.key in {pygame.K_UP, pygame.K_w}:
                 phase_scroll_y = max(0, phase_scroll_y - scroll_speed)
             elif event.type == pygame.KEYDOWN and event.key in {pygame.K_DOWN, pygame.K_s}:
@@ -455,11 +549,11 @@ def run_custom_setup_ui():
                 phase_scroll_y = 0
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_END:
                 phase_scroll_y = phase_max_scroll
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 4 and content_view_rect.collidepoint(mouse_pos):
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 4 and (content_view_rect.collidepoint(mouse_pos) or panel_rect.collidepoint(mouse_pos)):
                 phase_scroll_y = max(0, phase_scroll_y - scroll_speed)
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 5 and content_view_rect.collidepoint(mouse_pos):
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 5 and (content_view_rect.collidepoint(mouse_pos) or panel_rect.collidepoint(mouse_pos)):
                 phase_scroll_y = min(phase_max_scroll, phase_scroll_y + scroll_speed)
-            elif event.type == pygame.MOUSEWHEEL and content_view_rect.collidepoint(mouse_pos):
+            elif event.type == pygame.MOUSEWHEEL and (content_view_rect.collidepoint(mouse_pos) or panel_rect.collidepoint(mouse_pos)):
                 phase_scroll_y = max(0, min(phase_max_scroll, phase_scroll_y - event.y * scroll_speed))
 
         if state["phase"] != phase_before_events:
@@ -474,17 +568,24 @@ def run_custom_setup_ui():
             draw_title(screen, font, "Người chơi", (main_rect.centerx, main_rect.y + 34), PALETTE["text"])
             draw_subtitle(screen, small_font, "Nhập danh sách người chơi cho ván đấu người với người.", (main_rect.centerx, main_rect.y + 62))
 
+            count_label = tiny_font.render("Số người chơi", True, PALETTE["muted"])
+            screen.blit(count_label, (main_rect.x + 38, main_rect.y + 72))
             minus_rect = pygame.Rect(main_rect.x + 38, main_rect.y + 90, 46, 38)
-            count_rect = pygame.Rect(main_rect.x + 94, main_rect.y + 90, 70, 38)
-            plus_rect = pygame.Rect(main_rect.x + 174, main_rect.y + 90, 46, 38)
+            count_rect = pygame.Rect(main_rect.x + 94, main_rect.y + 90, 92, 38)
+            plus_rect = pygame.Rect(main_rect.x + 196, main_rect.y + 90, 46, 38)
             draw_button(screen, font, minus_rect, "-", PALETTE["panel_soft"], PALETTE["panel_dark"], minus_rect.collidepoint(mouse_pos), PALETTE["text"])
-            draw_panel(screen, count_rect, fill_color=(246, 239, 225), border_color=PALETTE["panel_dark"], radius=14, shadow=False)
-            count_surface = font.render(str(len(state["player_names"])), True, PALETTE["text"])
-            screen.blit(count_surface, (count_rect.centerx - count_surface.get_width() // 2, count_rect.centery - count_surface.get_height() // 2))
+            draw_text_box(
+                screen,
+                font,
+                count_rect,
+                state["player_count_text"],
+                active=state.get("active_input") == "player_count",
+                caret_visible=state.get("active_input") == "player_count" and caret_visible,
+            )
             draw_button(screen, font, plus_rect, "+", PALETTE["panel_soft"], PALETTE["panel_dark"], plus_rect.collidepoint(mouse_pos), PALETTE["text"])
 
-            quick_label = tiny_font.render("Preset nhanh cho ván người với người", True, PALETTE["muted"])
-            screen.blit(quick_label, (main_rect.x + 248, main_rect.y + 98))
+            quick_label = tiny_font.render("Có thể nhập tay hoặc dùng preset nhanh", True, PALETTE["muted"])
+            screen.blit(quick_label, (main_rect.x + 276, main_rect.y + 98))
             preset_count_rects = []
             for preset_index, count in enumerate((2, 4, 6, 8)):
                 rect = pygame.Rect(main_rect.x + 486 + preset_index * 74, main_rect.y + 90, 64, 34)
@@ -557,9 +658,11 @@ def run_custom_setup_ui():
             if mouse_clicked:
                 if minus_rect.collidepoint(mouse_pos) and len(state["player_names"]) > 1:
                     set_player_count(state, len(state["player_names"]) - 1)
+                    state["active_input"] = "player_name"
                     play_sfx("ui_click", volume_multiplier=0.45)
                 elif plus_rect.collidepoint(mouse_pos):
                     set_player_count(state, len(state["player_names"]) + 1, focus_new=True)
+                    state["active_input"] = "player_name"
                     play_sfx("ui_click", volume_multiplier=0.45)
                 elif humans_only_rect.collidepoint(mouse_pos):
                     clear_all_bots(state)
@@ -569,16 +672,23 @@ def run_custom_setup_ui():
                     for count, rect in preset_count_rects:
                         if rect.collidepoint(mouse_pos):
                             set_player_count(state, count)
+                            state["active_input"] = "player_name"
                             clear_all_bots(state)
                             play_sfx("ui_click", volume_multiplier=0.42)
                             preset_handled = True
                             break
                     if preset_handled:
                         pass
+                    elif count_rect.collidepoint(mouse_pos):
+                        state["active_input"] = "player_count"
+                        state["player_count_text"] = str(len(state["player_names"]))
+                        state["player_count_pristine"] = True
+                        play_sfx("ui_click", volume_multiplier=0.42)
                     else:
                         for index, name_rect, mode_rect in name_rects:
                             if name_rect.collidepoint(mouse_pos):
                                 focus_player_field(state, index)
+                                state["active_input"] = "player_name"
                                 play_sfx("ui_click", volume_multiplier=0.42)
                             elif mode_rect.collidepoint(mouse_pos):
                                 state["player_bot_flags"][index] = not state["player_bot_flags"][index]
@@ -586,9 +696,20 @@ def run_custom_setup_ui():
 
         elif state["phase"] == "match":
             draw_title(screen, font, "Nhịp độ và Bản đồ", (main_rect.centerx, main_rect.y + 34), PALETTE["text"])
-            draw_subtitle(screen, small_font, "Preset quyết định số ô. Layout thay đổi cách board xếp hiển thị.", (main_rect.centerx, main_rect.y + 62))
-            shortcut_rect = pygame.Rect(main_rect.x + 86, main_rect.y + 78, main_rect.width - 172, 26)
+            draw_subtitle(screen, small_font, "Preset là mẫu nhanh, còn số ô giờ có thể nhập tay ngay tại đây.", (main_rect.centerx, main_rect.y + 62))
+            shortcut_rect = pygame.Rect(main_rect.x + 86, main_rect.y + 78, main_rect.width - 360, 26)
             draw_hint_bar(screen, tiny_font, shortcut_rect, "Nhấn 1-3 để đổi preset | Q W E R để đổi layout | Enter để sang bước tiếp theo")
+            boxes_label = tiny_font.render("Số ô", True, PALETTE["muted"])
+            screen.blit(boxes_label, (shortcut_rect.right + 18, main_rect.y + 82))
+            num_boxes_rect = pygame.Rect(main_rect.right - 156, main_rect.y + 74, 96, 34)
+            draw_text_box(
+                screen,
+                font,
+                num_boxes_rect,
+                state["num_boxes_text"],
+                active=state.get("active_input") == "num_boxes",
+                caret_visible=state.get("active_input") == "num_boxes" and caret_visible,
+            )
 
             preset_rects = []
             for index, (preset_id, preset) in enumerate(MATCH_PRESETS.items()):
@@ -613,15 +734,21 @@ def run_custom_setup_ui():
                 is_active = state["layout_id"] == layout_id
                 draw_choice_card(screen, font, small_font, rect, layout["label"], layout["description"], active=is_active, reserve_right=88, hovered=rect.collidepoint(mouse_pos))
                 preview_rect = pygame.Rect(rect.right - 80, rect.y + 16, 60, 60)
-                draw_layout_preview(screen, preview_rect, MATCH_PRESETS[state["match_preset"]]["num_boxes"], layout["columns"], active=is_active)
+                draw_layout_preview(screen, preview_rect, get_setup_num_boxes(state), layout["columns"], active=is_active)
                 extra = tiny_font.render(f"{layout['columns']} cột | ô {layout['box_size']}px", True, PALETTE["muted"])
                 screen.blit(extra, (rect.x + 16, rect.bottom - 24))
                 layout_rects.append((layout_id, rect))
 
             if mouse_clicked:
+                if num_boxes_rect.collidepoint(mouse_pos):
+                    state["active_input"] = "num_boxes"
+                    state["num_boxes_text"] = str(get_setup_num_boxes(state))
+                    state["num_boxes_pristine"] = True
+                    play_sfx("ui_click", volume_multiplier=0.42)
                 for preset_id, rect in preset_rects:
                     if rect.collidepoint(mouse_pos):
-                        state["match_preset"] = preset_id
+                        apply_match_preset(state, preset_id)
+                        state["active_input"] = "num_boxes"
                         play_sfx("ui_click", volume_multiplier=0.45)
                 for layout_id, rect in layout_rects:
                     if rect.collidepoint(mouse_pos):
@@ -765,22 +892,37 @@ def run_custom_setup_ui():
                 play_sfx("ui_click", volume_multiplier=0.45)
                 if state["phase"] == "players":
                     return None, None, None, None, None, None
-                state["phase"] = {
-                    "match": "players",
-                    "rules": "match",
-                }[state["phase"]]
-                state["error"] = ""
+                    state["phase"] = {
+                        "match": "players",
+                        "rules": "match",
+                    }[state["phase"]]
+                    state["active_input"] = "player_name" if state["phase"] == "players" else "num_boxes"
+                    if state["phase"] == "players":
+                        state["player_count_pristine"] = True
+                    else:
+                        state["num_boxes_pristine"] = True
+                    state["error"] = ""
             elif next_rect.collidepoint(mouse_pos):
                 play_sfx("ui_click", volume_multiplier=0.48)
                 if state["phase"] == "players":
                     if all(str(name).strip() for name in state["player_names"]):
+                        state["player_count_text"] = str(len(state["player_names"]))
+                        state["player_count_pristine"] = True
                         state["phase"] = "match"
+                        state["active_input"] = "num_boxes"
+                        state["num_boxes_pristine"] = True
                         state["error"] = ""
                     else:
                         state["error"] = "Hãy nhập tên cho tất cả người chơi."
                 elif state["phase"] == "match":
-                    state["phase"] = "rules"
-                    state["error"] = ""
+                    if valid_number(state["num_boxes_text"]):
+                        state["num_boxes_text"] = str(get_setup_num_boxes(state))
+                        state["num_boxes_pristine"] = True
+                        state["phase"] = "rules"
+                        state["active_input"] = None
+                        state["error"] = ""
+                    else:
+                        state["error"] = "Số ô phải lớn hơn 0."
                 else:
                     return build_launch_payload(state)
 

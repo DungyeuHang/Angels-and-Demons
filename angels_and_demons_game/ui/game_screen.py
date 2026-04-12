@@ -1,4 +1,4 @@
-import math
+﻿import math
 import os
 import random
 import sys
@@ -33,6 +33,7 @@ from models.turn_modes import TURN_MODE_LABELS
 from models.turn_modes import normalize_turn_mode
 from ui.audio import play_music
 from ui.audio import play_sfx
+from ui.audio import stop_music
 from ui.audio import sync_audio_settings
 from ui.brand_assets import apply_window_icon
 from ui.brand_assets import get_surface
@@ -1183,6 +1184,8 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
     session = create_game_session(clone_players(players), num_boxes, dist_mode, custom_weights, turn_mode, session_options=session_options)
     if audio_settings.get("reduce_motion", False):
         session.flip_duration = 170
+    player_list_scroll_y = 0
+    player_list_scroll_speed = 34
 
     while True:
         tick = pygame.time.get_ticks()
@@ -1240,38 +1243,21 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
         info_panel_height = 404
         player_cards_top = sidebar_rect.y + 82
         players_area_bottom = sidebar_rect.bottom - info_panel_height - 24
-        players_area_height = max(80, players_area_bottom - player_cards_top)
-        players_area_width = sidebar_rect.width - 40
-        col_gap = 10
-
-        player_columns = 1
-        layout_found = False
-        for candidate_columns in (1, 2, 3):
-            player_rows = max(1, math.ceil(len(session.players) / candidate_columns))
-            candidate_row_gap = 10 if player_rows <= 6 else 8 if player_rows <= 10 else 6
-            candidate_width = (players_area_width - col_gap * (candidate_columns - 1)) // candidate_columns
-            candidate_height = (players_area_height - candidate_row_gap * max(0, player_rows - 1)) // player_rows
-            min_width = 190 if candidate_columns == 1 else 130 if candidate_columns == 2 else 86
-            min_height = 46 if candidate_columns == 1 else 36 if candidate_columns == 2 else 28
-            if candidate_width >= min_width and candidate_height >= min_height:
-                player_columns = candidate_columns
-                layout_found = True
-                break
-
-        if not layout_found:
-            player_columns = 3
-
-        player_rows = max(1, math.ceil(len(session.players) / player_columns))
-        row_gap = 10 if player_rows <= 6 else 8 if player_rows <= 10 else 6
-        player_card_width = (players_area_width - col_gap * (player_columns - 1)) // player_columns
-        player_card_height = max(24, (players_area_height - row_gap * max(0, player_rows - 1)) // player_rows)
+        players_area_height = max(92, players_area_bottom - player_cards_top)
+        players_area_rect = pygame.Rect(sidebar_rect.x + 16, player_cards_top, sidebar_rect.width - 24, players_area_height)
+        player_card_width = players_area_rect.width - 12
+        player_card_height = 52
+        row_gap = 8
+        player_list_content_height = max(0, len(session.players) * (player_card_height + row_gap) - row_gap)
+        player_list_max_scroll = max(0, player_list_content_height - players_area_rect.height)
+        player_list_scroll_y = max(0, min(player_list_scroll_y, player_list_max_scroll))
 
         player_hitboxes = []
+        previous_sidebar_clip = canvas.get_clip()
+        canvas.set_clip(players_area_rect)
         for index, player in enumerate(session.players):
-            row = index // player_columns
-            col = index % player_columns
-            card_x = sidebar_rect.x + 20 + col * (player_card_width + col_gap)
-            card_y = player_cards_top + row * (player_card_height + row_gap)
+            card_x = players_area_rect.x + 2
+            card_y = players_area_rect.y + index * (player_card_height + row_gap) - player_list_scroll_y
             card_rect = pygame.Rect(card_x, card_y, player_card_width, player_card_height)
             reaction = session.player_reactions.get(index)
             if reaction:
@@ -1280,83 +1266,53 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
                     shake_offset = int(math.sin((tick - int(reaction.get("created_at", tick))) / 45) * 5)
                     card_rect = card_rect.move(shake_offset, 0)
                 elif delta > 0:
-                    draw_glow(canvas, card_rect.center, PALETTE["mint"], max(30, player_card_height + 10), 18)
+                    draw_glow(canvas, card_rect.center, PALETTE["mint"], max(34, player_card_height + 10), 18)
             player_hitboxes.append((index, card_rect))
 
             if index == session.current_player:
                 fill_color = (242, 228, 188)
                 border_color = PALETTE["gold_dark"]
-                draw_glow(canvas, card_rect.center, PALETTE["gold"], max(34, player_card_height + 10), 26)
+                draw_glow(canvas, card_rect.center, PALETTE["gold"], max(38, player_card_height + 14), 26)
             else:
                 fill_color = (233, 224, 209)
                 border_color = PALETTE["panel_dark"]
 
-            draw_panel(canvas, card_rect, fill_color=fill_color, border_color=border_color, radius=20, shadow=False)
+            draw_panel(canvas, card_rect, fill_color=fill_color, border_color=border_color, radius=18, shadow=False)
 
             badge_rect = None
-            content_right = card_rect.right - 12
-            show_turn_badge = index == session.current_player and player_card_width >= 150 and player_card_height >= 30
-            if show_turn_badge:
-                badge_width = 58
-                badge_height = min(26, max(18, player_card_height - 8))
-                badge_y = card_rect.y + max(4, (player_card_height - badge_height) // 2)
-                badge_rect = pygame.Rect(card_rect.right - badge_width - 8, badge_y, badge_width, badge_height)
+            content_right = card_rect.right - 14
+            if index == session.current_player:
+                badge_rect = pygame.Rect(card_rect.right - 66, card_rect.y + 12, 54, 26)
                 content_right = badge_rect.x - 8
-            elif index == session.current_player:
-                pygame.draw.circle(
-                    canvas,
-                    PALETTE["gold_dark"],
-                    (card_rect.right - 12, card_rect.y + max(12, 10)),
-                    5 if player_card_height >= 32 else 4,
-                )
 
-            if player_card_height >= 54 and player_card_width >= 150:
-                name_font = ui_font
-                score_font = ui_small_font
-                max_text_width = max(24, content_right - (card_rect.x + 14))
-                name_text = truncate_text(name_font, player.name, max_text_width)
-                score_text = truncate_text(score_font, f"{player.score} điểm", max_text_width)
-                render_text(canvas, name_font, name_text, (card_rect.x + 14, card_rect.y + 9), PALETTE["text"])
-                render_text(canvas, score_font, score_text, (card_rect.x + 14, card_rect.y + 33), PALETTE["muted"])
-            else:
-                name_font = ui_small_font if player_card_height >= 30 else ui_tiny_font
-                score_font = ui_tiny_font
-                score_text = f"{player.score}d"
-                score_surface = score_font.render(score_text, True, PALETTE["muted"])
-                score_x = max(card_rect.x + 12, content_right - score_surface.get_width())
-                max_name_width = max(24, score_x - card_rect.x - 20)
-                name_text = truncate_text(name_font, player.name, max_name_width)
-                name_surface = name_font.render(name_text, True, PALETTE["text"])
-                baseline_y = card_rect.centery - max(name_surface.get_height(), score_surface.get_height()) // 2
-                canvas.blit(name_surface, (card_rect.x + 10, baseline_y))
-                canvas.blit(score_surface, (score_x, card_rect.centery - score_surface.get_height() // 2))
+            name_font = ui_small_font
+            score_font = ui_tiny_font
+            max_text_width = max(64, content_right - (card_rect.x + 16))
+            name_text = truncate_text(name_font, player.name, max_text_width)
+            score_text = truncate_text(score_font, f"{player.score} điểm", max_text_width)
+            render_text(canvas, name_font, name_text, (card_rect.x + 14, card_rect.y + 9), PALETTE["text"])
+            render_text(canvas, score_font, score_text, (card_rect.x + 14, card_rect.y + 30), PALETTE["muted"])
 
             status_tokens = build_status_tokens(player)
-            if status_tokens and player_card_height >= 34:
-                token_x = card_rect.x + 12
-                token_y = card_rect.bottom - 20 if player_card_height >= 54 else card_rect.y + 6
-                if getattr(player, "is_bot", False):
-                    token_rect = pygame.Rect(token_x, token_y, 34, 16)
-                    draw_panel(canvas, token_rect, fill_color=(243, 223, 226), border_color=PALETTE["crimson_dark"], radius=8, shadow=False)
-                    token_text = ui_tiny_font.render("BOT", True, PALETTE["text"])
-                    canvas.blit(token_text, (token_rect.centerx - token_text.get_width() // 2, token_rect.centery - token_text.get_height() // 2))
-                    token_x += 38
-                for label, token_color in status_tokens[:3]:
-                    token_rect = pygame.Rect(token_x, token_y, 28, 16)
-                    draw_panel(canvas, token_rect, fill_color=token_color, border_color=PALETTE["panel_dark"], radius=8, shadow=False)
-                    token_text = ui_tiny_font.render(label, True, PALETTE["text"])
-                    canvas.blit(token_text, (token_rect.centerx - token_text.get_width() // 2, token_rect.centery - token_text.get_height() // 2))
-                    token_x += 32
-            elif getattr(player, "is_bot", False) and player_card_height >= 34:
-                token_rect = pygame.Rect(card_rect.x + 12, card_rect.bottom - 20 if player_card_height >= 54 else card_rect.y + 6, 34, 16)
-                draw_panel(canvas, token_rect, fill_color=(243, 223, 226), border_color=PALETTE["crimson_dark"], radius=8, shadow=False)
+            token_x = card_rect.x + 14
+            token_y = card_rect.bottom - 18
+            if getattr(player, "is_bot", False):
+                token_rect = pygame.Rect(token_x, token_y, 34, 14)
+                draw_panel(canvas, token_rect, fill_color=(243, 223, 226), border_color=PALETTE["crimson_dark"], radius=7, shadow=False)
                 token_text = ui_tiny_font.render("BOT", True, PALETTE["text"])
                 canvas.blit(token_text, (token_rect.centerx - token_text.get_width() // 2, token_rect.centery - token_text.get_height() // 2))
+                token_x += 38
+            for label, token_color in status_tokens[:3]:
+                token_rect = pygame.Rect(token_x, token_y, 28, 14)
+                draw_panel(canvas, token_rect, fill_color=token_color, border_color=PALETTE["panel_dark"], radius=7, shadow=False)
+                token_text = ui_tiny_font.render(label, True, PALETTE["text"])
+                canvas.blit(token_text, (token_rect.centerx - token_text.get_width() // 2, token_rect.centery - token_text.get_height() // 2))
+                token_x += 32
 
             if badge_rect is not None:
                 draw_button(
                     canvas,
-                    ui_tiny_font if badge_rect.height < 24 else ui_small_font,
+                    ui_tiny_font,
                     badge_rect,
                     "TURN",
                     PALETTE["gold"],
@@ -1364,6 +1320,16 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
                     badge_rect.collidepoint(canvas_mouse),
                     PALETTE["text"],
                 )
+        canvas.set_clip(previous_sidebar_clip)
+        if player_list_max_scroll > 0:
+            draw_scrollbar(
+                canvas,
+                pygame.Rect(players_area_rect.right - 6, players_area_rect.y + 4, 8, players_area_rect.height - 8),
+                player_list_content_height,
+                players_area_rect.height,
+                player_list_scroll_y,
+                accent_color=PALETTE["gold_dark"],
+            )
 
         info_rect = pygame.Rect(sidebar_rect.x + 20, sidebar_rect.bottom - info_panel_height - 20, sidebar_rect.width - 40, info_panel_height)
         draw_panel(canvas, info_rect, fill_color=(233, 224, 209), border_color=PALETTE["panel_dark"], radius=22, shadow=False)
@@ -1725,6 +1691,16 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
                     session.help_visible = False
                 continue
 
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 4 and players_area_rect.collidepoint(canvas_mouse):
+                player_list_scroll_y = max(0, player_list_scroll_y - player_list_scroll_speed)
+                continue
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 5 and players_area_rect.collidepoint(canvas_mouse):
+                player_list_scroll_y = min(player_list_max_scroll, player_list_scroll_y + player_list_scroll_speed)
+                continue
+            if event.type == pygame.MOUSEWHEEL and players_area_rect.collidepoint(canvas_mouse):
+                player_list_scroll_y = max(0, min(player_list_max_scroll, player_list_scroll_y - event.y * player_list_scroll_speed))
+                continue
+
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 pos = (int(event.pos[0] * scale_x), int(event.pos[1] * scale_y))
 
@@ -1864,13 +1840,16 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SE
                     series_state["wins"] = {player.name: 0 for player in players}
                     series_state["champion"] = None
                     continue
+                stop_music(fade_ms=120)
                 return
             finalize_session_records(session)
             intermission_result = show_series_round_result(screen, fonts, session, series_state)
             if intermission_result == "continue":
                 series_state["round_number"] += 1
                 continue
+            stop_music(fade_ms=120)
             return
+        stop_music(fade_ms=120)
         return
 
 
@@ -2014,10 +1993,13 @@ def show_final_result(screen, title_font, font, session, series_state=None):
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                stop_music(fade_ms=120)
                 return "quit"
             if event.type == pygame.KEYDOWN and event.key in {pygame.K_RETURN, pygame.K_SPACE}:
+                stop_music(fade_ms=120)
                 return "rematch"
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                stop_music(fade_ms=120)
                 return "quit"
             if event.type == pygame.KEYDOWN and event.key in {pygame.K_UP, pygame.K_w}:
                 leaderboard_scroll_y = max(0, leaderboard_scroll_y - 34)
@@ -2033,8 +2015,10 @@ def show_final_result(screen, title_font, font, session, series_state=None):
                 leaderboard_scroll_y = leaderboard_max_scroll
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if replay_rect.collidepoint(event.pos):
+                    stop_music(fade_ms=120)
                     return "rematch"
                 if exit_rect.collidepoint(event.pos):
+                    stop_music(fade_ms=120)
                     return "quit"
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 4:
                 leaderboard_scroll_y = max(0, leaderboard_scroll_y - 34)
@@ -2223,10 +2207,13 @@ def show_final_result(screen, title_font, font, session, series_state=None):
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                stop_music(fade_ms=120)
                 return "quit"
             if event.type == pygame.KEYDOWN and event.key in {pygame.K_RETURN, pygame.K_SPACE}:
+                stop_music(fade_ms=120)
                 return "rematch"
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                stop_music(fade_ms=120)
                 return "quit"
             if event.type == pygame.KEYDOWN and event.key in {pygame.K_UP, pygame.K_w}:
                 content_scroll_y = max(0, content_scroll_y - scroll_speed)
@@ -2242,8 +2229,10 @@ def show_final_result(screen, title_font, font, session, series_state=None):
                 content_scroll_y = max_scroll
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if replay_rect.collidepoint(event.pos):
+                    stop_music(fade_ms=120)
                     return "rematch"
                 if exit_rect.collidepoint(event.pos):
+                    stop_music(fade_ms=120)
                     return "quit"
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 4:
                 content_scroll_y = max(0, content_scroll_y - scroll_speed)
@@ -2445,10 +2434,13 @@ def show_final_result(screen, title_font, font, session, series_state=None):
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                stop_music(fade_ms=120)
                 return "quit"
             if event.type == pygame.KEYDOWN and event.key in {pygame.K_RETURN, pygame.K_SPACE}:
+                stop_music(fade_ms=120)
                 return "rematch"
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                stop_music(fade_ms=120)
                 return "quit"
             if event.type == pygame.KEYDOWN and event.key in {pygame.K_UP, pygame.K_w}:
                 content_scroll_y = max(0, content_scroll_y - scroll_speed)
@@ -2464,8 +2456,10 @@ def show_final_result(screen, title_font, font, session, series_state=None):
                 content_scroll_y = max_scroll
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if replay_rect.collidepoint(event.pos):
+                    stop_music(fade_ms=120)
                     return "rematch"
                 if exit_rect.collidepoint(event.pos):
+                    stop_music(fade_ms=120)
                     return "quit"
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 4:
                 content_scroll_y = max(0, content_scroll_y - scroll_speed)

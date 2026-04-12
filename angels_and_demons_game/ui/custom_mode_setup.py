@@ -13,6 +13,7 @@ from mechanics.randomizer import build_default_weight_map
 from mechanics.randomizer import sanitize_weights
 from models.custom_effects import CUSTOM_EFFECT_OPERATION_LABELS
 from models.custom_effects import CUSTOM_EFFECT_OPERATION_OPTIONS
+from models.custom_effects import delete_custom_effect
 from models.custom_effects import save_custom_effect
 from models.custom_modes import delete_custom_mode
 from models.custom_modes import load_custom_modes
@@ -1113,15 +1114,20 @@ def run_custom_mode_ui():
                 percent = 0 if total <= 0 else weight / total * 100
                 label = str(effect.get("label", effect_id))
                 detail = build_effect_description(effect)
-                label_copy = clamp_text(font, f"{label} - {percent:.1f}%", row.width - 248)
+                delete_rect = None
+                if effect.get("is_custom"):
+                    delete_rect = pygame.Rect(row.right - 252, row.y + 13, 44, 32)
+                label_copy = clamp_text(font, f"{label} - {percent:.1f}%", row.width - (296 if delete_rect else 248))
                 screen.blit(font.render(label_copy, True, (0, 0, 0)), (row.x + 18, row.y + 8))
                 screen.blit(small_font.render(detail, True, (90, 90, 90)), (row.x + 18, row.y + 32))
+                if delete_rect is not None:
+                    draw_button(screen, tiny_font, delete_rect, "Xóa", (244, 220, 224), (0, 0, 0), PALETTE["crimson_dark"])
                 minus_rect = pygame.Rect(row.right - 200, row.y + 13, 40, 32)
                 plus_rect = pygame.Rect(row.right - 50, row.y + 13, 40, 32)
                 draw_button(screen, font, minus_rect, "-", (230, 230, 230))
                 draw_box(screen, font, pygame.Rect(row.right - 150, row.y + 13, 90, 32), f"{weight:.1f}")
                 draw_button(screen, font, plus_rect, "+", (230, 230, 230))
-                buttons.append((effect_id, minus_rect, plus_rect))
+                buttons.append((effect_id, minus_rect, plus_rect, delete_rect))
 
             max_scroll = max(0, len(filtered_effects) * (row_height + row_gap) - (visible_bottom - row_top))
             scroll_y = max(0, min(scroll_y, max_scroll))
@@ -1139,10 +1145,15 @@ def run_custom_mode_ui():
                         scroll_y = 0
                         handled = True
                         break
-                for effect_id, minus_rect, plus_rect in buttons:
+                for effect_id, minus_rect, plus_rect, delete_rect in buttons:
                     if handled:
                         break
-                    if minus_rect.collidepoint(mouse_pos):
+                    if delete_rect is not None and delete_rect.collidepoint(mouse_pos):
+                        delete_custom_effect(effect_id)
+                        state["weights"].pop(effect_id, None)
+                        state["weights"] = sanitize_weights(state["weights"], include_custom=True)
+                        handled = True
+                    elif minus_rect.collidepoint(mouse_pos):
                         state["weights"][effect_id] = max(0.0, state["weights"].get(effect_id, 0.0) - 0.5)
                         handled = True
                     elif plus_rect.collidepoint(mouse_pos):
