@@ -177,10 +177,16 @@ def draw_text_box(surface, font, rect, value, active=False, caret_visible=False)
     if active:
         draw_glow(surface, rect.center, PALETTE["gold"], max(30, rect.width // 2), 16)
     draw_panel(surface, rect, fill_color=fill_color, border_color=border_color, radius=14, shadow=False)
-    text_surface = font.render(value, True, PALETTE["text"])
-    surface.blit(text_surface, (rect.x + 10, rect.centery - text_surface.get_height() // 2))
+    text_surface = font.render(str(value), True, PALETTE["text"])
+    text_x = rect.x + 10
+    if text_surface.get_width() > rect.width - 24:
+        text_x = rect.right - text_surface.get_width() - 12
+    previous_clip = surface.get_clip()
+    surface.set_clip(rect.inflate(-8, -4))
+    surface.blit(text_surface, (text_x, rect.centery - text_surface.get_height() // 2))
+    surface.set_clip(previous_clip)
     if active and caret_visible:
-        caret_x = min(rect.right - 12, rect.x + 14 + text_surface.get_width())
+        caret_x = min(rect.right - 12, text_x + text_surface.get_width() + 2)
         pygame.draw.line(surface, border_color, (caret_x, rect.y + 10), (caret_x, rect.bottom - 10), 2)
 
 
@@ -436,6 +442,10 @@ def run_custom_setup_ui():
         draw_panel(screen, main_rect, fill_color=(252, 245, 235), border_color=PALETTE["lilac"], radius=26, shadow=False)
         content_view_rect = pygame.Rect(main_rect.x + 8, main_rect.y + 8, main_rect.width - 16, main_rect.height - 16)
         phase_max_scroll = 0
+        if state["phase"] == "players":
+            estimated_rows = max(1, math.ceil(len(state["player_names"]) / 3))
+            estimated_height = 176 + estimated_rows * 94 + 14 + 32 + 18
+            phase_max_scroll = max(0, estimated_height - content_view_rect.height)
         next_rect = get_reveal_rect(pygame.Rect(panel_rect.right - 224, panel_rect.bottom - 62, 178, 42), phase_progress, offset_y=10)
         back_rect = get_reveal_rect(pygame.Rect(panel_rect.right - 418, panel_rect.bottom - 62, 160, 42), phase_progress, offset_y=10)
 
@@ -644,16 +654,7 @@ def run_custom_setup_ui():
             draw_hint_bar(screen, tiny_font, helper_rect, helper_text)
             players_content_height = 176 + player_rows * 94 + 14 + 32 + 18
             phase_max_scroll = max(0, players_content_height - content_view_rect.height)
-            if state.get("active_input") == "player_name" and state["player_names"]:
-                focus_row = state["editing"] // per_row
-                focus_top = 176 + focus_row * 94
-                focus_bottom = focus_top + 56
-                view_top = phase_scroll_y
-                view_bottom = phase_scroll_y + content_view_rect.height - 48
-                if focus_top < view_top:
-                    phase_scroll_y = max(0, focus_top)
-                elif focus_bottom > view_bottom:
-                    phase_scroll_y = min(phase_max_scroll, focus_bottom - content_view_rect.height + 48)
+            phase_scroll_y = max(0, min(phase_scroll_y, phase_max_scroll))
             screen.set_clip(previous_clip)
             if phase_max_scroll > 0:
                 draw_scrollbar(

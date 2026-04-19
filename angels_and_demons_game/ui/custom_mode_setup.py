@@ -1,5 +1,6 @@
 import os
 import sys
+import math
 
 import pygame
 
@@ -76,16 +77,29 @@ def draw_box(screen, font, rect, value, active=False, caret_visible=False):
     pygame.draw.rect(screen, fill_color, rect, border_radius=8)
     pygame.draw.rect(screen, border_color, rect, 3 if active else 2, border_radius=8)
 
-    text = font.render(value, True, (0, 0, 0))
+    text_value = str(value)
+    text = font.render(text_value, True, (0, 0, 0))
     text_x = rect.x + 10
+    if text.get_width() > rect.width - 22:
+        text_x = rect.right - text.get_width() - 12
     text_y = rect.centery - text.get_height() // 2
+    previous_clip = screen.get_clip()
+    screen.set_clip(rect.inflate(-8, -4))
     screen.blit(text, (text_x, text_y))
+    screen.set_clip(previous_clip)
 
     if active and caret_visible:
-        caret_x = text_x + text.get_width() + 2
+        caret_x = min(rect.right - 10, text_x + text.get_width() + 2)
         caret_top = rect.centery - text.get_height() // 2
         caret_bottom = rect.centery + text.get_height() // 2
         pygame.draw.line(screen, border_color, (caret_x, caret_top), (caret_x, caret_bottom), 2)
+
+
+def get_nav_rects(screen, width=170, height=50, gap=28, bottom_padding=66):
+    y = screen.get_height() - bottom_padding
+    next_rect = pygame.Rect(screen.get_width() - 230, y, width, height)
+    back_rect = pygame.Rect(next_rect.x - width - gap, y, width, height)
+    return back_rect, next_rect
 
 
 def draw_filter_chip(screen, font, rect, label, active=False, hovered=False):
@@ -541,6 +555,11 @@ def run_custom_mode_ui():
         current_time = pygame.time.get_ticks()
         caret_visible = (current_time // 500) % 2 == 0
         max_scroll = 0
+        if phase == "names":
+            names_per_row = 3
+            name_rows = max(1, math.ceil(len(state["player_names"]) / names_per_row))
+            names_view_height = max(180, screen.get_height() - 268)
+            max_scroll = max(0, name_rows * 66 - names_view_height)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -548,10 +567,12 @@ def run_custom_mode_ui():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     mouse_clicked = True
-                elif phase in {"list", "weights"} and event.button == 4:
+                elif phase in {"list", "weights", "names"} and event.button == 4:
                     scroll_y = max(0, scroll_y - 40)
-                elif phase in {"list", "weights"} and event.button == 5:
-                    scroll_y += 40
+                elif phase in {"list", "weights", "names"} and event.button == 5:
+                    scroll_y = min(max_scroll, scroll_y + 40) if max_scroll else scroll_y + 40
+            if event.type == pygame.MOUSEWHEEL and phase in {"list", "weights", "names"}:
+                scroll_y = max(0, min(max_scroll, scroll_y - event.y * 44)) if max_scroll else max(0, scroll_y - event.y * 44)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     if phase == "list":
@@ -616,6 +637,7 @@ def run_custom_mode_ui():
                         state["player_bot_flags"] = resize_flags(state["player_bot_flags"], int(state["num_players_text"]))
                         editing = focus_player_field(state, 0)
                         phase = "names"
+                        scroll_y = 0
                         refresh_text_input()
                     elif event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
                         handle_backspace(state, phase, editing, effect_editor)
@@ -634,6 +656,7 @@ def run_custom_mode_ui():
                         refresh_text_input()
                     elif event.key == pygame.K_RETURN and all(name.strip() for name in state["player_names"]):
                         phase = "boxes"
+                        scroll_y = 0
                         refresh_text_input()
                     elif event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
                         handle_backspace(state, phase, editing, effect_editor)
@@ -875,8 +898,7 @@ def run_custom_mode_ui():
             screen.blit(font.render("Dat ten che do", True, (0, 0, 0)), (60, 40))
             draw_box(screen, font, pygame.Rect(60, 120, 520, 46), state["mode_name"], True, caret_visible)
             draw_hint_bar(screen, tiny_font, pygame.Rect(60, 182, 560, 28), "Nhập tên preset để phân biệt dễ hơn | Enter để sang bước tiếp")
-            next_rect = pygame.Rect(760, 620, 170, 50)
-            back_rect = pygame.Rect(560, 620, 170, 50)
+            back_rect, next_rect = get_nav_rects(screen)
             draw_button(screen, font, next_rect, "Tiếp", (100, 200, 100))
             draw_button(screen, font, back_rect, "Trở lại", (220, 120, 120))
             if mouse_clicked:
@@ -892,8 +914,7 @@ def run_custom_mode_ui():
             screen.blit(font.render("So nguoi choi", True, (0, 0, 0)), (60, 40))
             draw_box(screen, font, pygame.Rect(60, 120, 200, 46), state["num_players_text"], True, caret_visible)
             draw_hint_bar(screen, tiny_font, pygame.Rect(60, 182, 470, 28), "Nhập số slot bạn muốn tạo | Enter để sang bước đặt tên")
-            next_rect = pygame.Rect(760, 620, 170, 50)
-            back_rect = pygame.Rect(560, 620, 170, 50)
+            back_rect, next_rect = get_nav_rects(screen)
             draw_button(screen, font, next_rect, "Tiếp", (100, 200, 100))
             draw_button(screen, font, back_rect, "Trở lại", (220, 120, 120))
             if mouse_clicked:
@@ -902,6 +923,7 @@ def run_custom_mode_ui():
                         state["player_names"] = resize_names(state["player_names"], int(state["num_players_text"]))
                         state["player_bot_flags"] = resize_flags(state["player_bot_flags"], int(state["num_players_text"]))
                         editing, error, phase = focus_player_field(state, 0), "", "names"
+                        scroll_y = 0
                     else:
                         error = "So nguoi choi khong hop le."
                 elif back_rect.collidepoint(mouse_pos):
@@ -916,7 +938,7 @@ def run_custom_mode_ui():
             draw_button(screen, font, minus_rect, "-", (230, 230, 230))
             draw_box(screen, font, count_rect, str(len(state["player_names"])))
             draw_button(screen, font, plus_rect, "+", (230, 230, 230))
-            quick_label = small_font.render("Preset nhanh cho van nguoi voi nguoi", True, (90, 90, 90))
+            quick_label = small_font.render("Preset nhanh cho ván người với người", True, (90, 90, 90))
             screen.blit(quick_label, (262, 100))
             preset_rects = []
             for preset_index, count in enumerate((2, 4, 6, 8)):
@@ -926,7 +948,7 @@ def run_custom_mode_ui():
                     screen,
                     small_font,
                     rect,
-                    f"{count} nguoi",
+                    f"{count} người",
                     (247, 223, 184) if active else (241, 234, 221),
                     (0, 0, 0),
                     PALETTE["gold_dark"] if active else PALETTE["panel_dark"],
@@ -944,21 +966,43 @@ def run_custom_mode_ui():
                 PALETTE["mint_dark"] if all_human_active else PALETTE["panel_dark"],
             )
             name_rects = []
+            names_per_row = 3
+            names_gap_x = 18
+            names_row_height = 66
+            names_view_rect = pygame.Rect(50, 148, screen.get_width() - 100, screen.get_height() - 268)
+            name_box_width = (names_view_rect.width - (names_per_row - 1) * names_gap_x) // names_per_row
+            name_rows = max(1, math.ceil(len(state["player_names"]) / names_per_row))
+            names_content_height = name_rows * names_row_height
+            max_scroll = max(0, names_content_height - names_view_rect.height)
+            scroll_y = max(0, min(scroll_y, max_scroll))
+            previous_clip = screen.get_clip()
+            screen.set_clip(names_view_rect)
             for index, name in enumerate(state["player_names"]):
-                x = 60 + (index % 4) * 238
-                y = 176 + (index // 4) * 60
-                rect = pygame.Rect(x, y, 220, 42)
+                x = names_view_rect.x + (index % names_per_row) * (name_box_width + names_gap_x)
+                y = names_view_rect.y + (index // names_per_row) * names_row_height - scroll_y
+                rect = pygame.Rect(x, y, name_box_width, 44)
                 toggle_rect = pygame.Rect(-200, -200, 1, 1)
+                if rect.bottom < names_view_rect.y or rect.top > names_view_rect.bottom:
+                    continue
                 draw_box(screen, font, rect, name, index == editing, index == editing and caret_visible)
                 toggle_label = "BOT" if state["player_bot_flags"][index] else "Người"
                 toggle_fill = (244, 217, 223) if state["player_bot_flags"][index] else (225, 241, 230)
                 toggle_border = PALETTE["crimson_dark"] if state["player_bot_flags"][index] else PALETTE["mint_dark"]
                 draw_button(screen, small_font, toggle_rect, toggle_label, toggle_fill, (0, 0, 0), toggle_border)
                 name_rects.append((index, rect, toggle_rect))
-            hint_copy = "Tab de doi o, click de chon nhanh. Van nguoi voi nguoi dang la luong chinh."
-            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 584, 960, 30), hint_copy)
-            next_rect = pygame.Rect(760, 620, 170, 50)
-            back_rect = pygame.Rect(560, 620, 170, 50)
+            screen.set_clip(previous_clip)
+            if max_scroll > 0:
+                draw_scrollbar(
+                    screen,
+                    pygame.Rect(names_view_rect.right - 10, names_view_rect.y + 4, 8, names_view_rect.height - 8),
+                    names_content_height,
+                    names_view_rect.height,
+                    scroll_y,
+                    accent_color=PALETTE["gold_dark"],
+                )
+            hint_copy = "Tab để đổi ô, click để chọn nhanh. Lăn chuột để xem hết danh sách khi nhiều người."
+            draw_hint_bar(screen, tiny_font, pygame.Rect(60, screen.get_height() - 116, screen.get_width() - 120, 30), hint_copy)
+            back_rect, next_rect = get_nav_rects(screen)
             draw_button(screen, font, next_rect, "Tiếp", (100, 200, 100))
             draw_button(screen, font, back_rect, "Trở lại", (220, 120, 120))
             if mouse_clicked:
@@ -973,6 +1017,7 @@ def run_custom_mode_ui():
                     error = "" if all(name.strip() for name in state["player_names"]) else "Hay nhap du ten nguoi choi."
                     if not error:
                         phase = "boxes"
+                        scroll_y = 0
                         refresh_text_input()
                 elif back_rect.collidepoint(mouse_pos):
                     phase, error = "players", ""
@@ -998,8 +1043,7 @@ def run_custom_mode_ui():
             screen.blit(font.render("Số ô may mắn", True, (0, 0, 0)), (60, 40))
             draw_box(screen, font, pygame.Rect(60, 120, 200, 46), state["num_boxes_text"], True, caret_visible)
             draw_hint_bar(screen, tiny_font, pygame.Rect(60, 182, 520, 28), "Số ô quyết định độ dài ván | Enter để sang bước luật và layout")
-            next_rect = pygame.Rect(760, 620, 170, 50)
-            back_rect = pygame.Rect(560, 620, 170, 50)
+            back_rect, next_rect = get_nav_rects(screen)
             draw_button(screen, font, next_rect, "Tiếp", (100, 200, 100))
             draw_button(screen, font, back_rect, "Trở lại", (220, 120, 120))
             if mouse_clicked:
@@ -1017,8 +1061,7 @@ def run_custom_mode_ui():
             draw_hint_bar(screen, tiny_font, pygame.Rect(60, 102, 960, 28), "A-S den luot | Q-W-E-R layout | Enter de sang buoc effect")
             sequential_rect = pygame.Rect(60, 140, 460, 130)
             manual_rect = pygame.Rect(560, 140, 460, 130)
-            next_rect = pygame.Rect(760, 620, 170, 50)
-            back_rect = pygame.Rect(560, 620, 170, 50)
+            back_rect, next_rect = get_nav_rects(screen)
             options = [
                 (SEQUENTIAL_TURN_MODE, sequential_rect, TURN_MODE_LABELS[SEQUENTIAL_TURN_MODE], "Tu dong quay vong tu nguoi dau den nguoi cuoi."),
                 (MANUAL_TURN_MODE, manual_rect, TURN_MODE_LABELS[MANUAL_TURN_MODE], "Người chơi tự click chọn tên trước khi mở ô."),
@@ -1098,7 +1141,8 @@ def run_custom_mode_ui():
             row_top = 150
             row_height = 58
             row_gap = 12
-            visible_bottom = screen.get_height() - 130
+            footer_hint_rect = pygame.Rect(60, screen.get_height() - 116, screen.get_width() - 120, 28)
+            visible_bottom = footer_hint_rect.y - 14
             buttons = []
             total = sum(state["weights"].get(str(effect["id"]), 0.0) for effect in effects)
             for index, effect in enumerate(filtered_effects):
@@ -1132,11 +1176,10 @@ def run_custom_mode_ui():
             max_scroll = max(0, len(filtered_effects) * (row_height + row_gap) - (visible_bottom - row_top))
             scroll_y = max(0, min(scroll_y, max_scroll))
 
-            back_rect = pygame.Rect(560, 620, 170, 50)
-            next_rect = pygame.Rect(760, 620, 170, 50)
+            back_rect, next_rect = get_nav_rects(screen)
             draw_button(screen, font, back_rect, "Trở lại", (220, 120, 120))
             draw_button(screen, font, next_rect, "Bắt đầu", (100, 200, 100))
-            draw_hint_bar(screen, tiny_font, pygame.Rect(60, 582, 520, 28), "1-3 để lọc effect | +/- để chỉnh nhanh | Enter sang bước lưu")
+            draw_hint_bar(screen, tiny_font, footer_hint_rect, "1-3 để lọc effect | +/- để chỉnh nhanh | Enter sang bước lưu")
             if mouse_clicked:
                 handled = False
                 for filter_key, rect in filter_rects:

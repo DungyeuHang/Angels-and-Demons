@@ -1248,6 +1248,13 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
 
     while True:
         tick = pygame.time.get_ticks()
+        target_canvas_size = (
+            max(GAME_WINDOW_SIZE[0], screen.get_width()),
+            max(GAME_WINDOW_SIZE[1], screen.get_height()),
+        )
+        if target_canvas_size != canvas_size:
+            canvas_size = target_canvas_size
+            canvas = pygame.Surface(canvas_size).convert()
         if not session.help_visible and tick >= session.reveal_lock_until:
             if not session.waiting_effect_input:
                 handle_active_player_skip(session, tick)
@@ -1330,6 +1337,8 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
                     card_rect = card_rect.move(shake_offset, 0)
                 elif delta > 0:
                     draw_glow(canvas, card_rect.center, PALETTE["mint"], max(34, player_card_height + 10), 18)
+            if card_rect.bottom < players_area_rect.y or card_rect.top > players_area_rect.bottom:
+                continue
             player_hitboxes.append((index, card_rect))
 
             if index == session.current_player:
@@ -1568,7 +1577,12 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
             base_box_size,
             base_gap,
         )
-        box_label_font = ui_font if box_size >= 66 else ui_small_font if box_size >= 54 else ui_tiny_font
+        if box_size >= 78:
+            box_label_font = fonts["spotlight_title"]
+        elif box_size >= 62:
+            box_label_font = ui_font
+        else:
+            box_label_font = ui_small_font if box_size >= 48 else ui_tiny_font
 
         manual_lock = session.turn_mode == MANUAL_TURN_MODE and session.current_player is None and not session.waiting_effect_input
         reveal_in_progress = tick < session.reveal_lock_until
@@ -1763,8 +1777,11 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
         if session.help_visible:
             draw_help_overlay(canvas, font, ui_small_font, ui_tiny_font)
 
-        scaled_canvas = pygame.transform.smoothscale(canvas, screen.get_size())
-        screen.blit(scaled_canvas, (0, 0))
+        if canvas.get_size() == screen.get_size():
+            screen.blit(canvas, (0, 0))
+        else:
+            scaled_canvas = pygame.transform.smoothscale(canvas, screen.get_size())
+            screen.blit(scaled_canvas, (0, 0))
         pygame.display.flip()
 
         for event in pygame.event.get():
@@ -1909,8 +1926,11 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SE
         "spotlight_symbol": get_ui_font(36, bold=True),
     }
 
-    canvas_size = GAME_WINDOW_SIZE
-    canvas = pygame.Surface(canvas_size)
+    canvas_size = (
+        max(GAME_WINDOW_SIZE[0], screen.get_width()),
+        max(GAME_WINDOW_SIZE[1], screen.get_height()),
+    )
+    canvas = pygame.Surface(canvas_size).convert()
     turn_mode = normalize_turn_mode(turn_mode)
     base_session_options = dict(session_options or {})
     series_target_wins = int(base_session_options.get("series_target_wins", 1) or 1)

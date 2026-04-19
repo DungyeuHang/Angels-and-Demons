@@ -19,6 +19,7 @@ def build_display_flags(fullscreen=False, resizable=True):
 
 
 def create_display(size, caption, fullscreen=False, resizable=True):
-    screen = pygame.display.set_mode(size, build_display_flags(fullscreen=fullscreen, resizable=resizable))
+    display_size = (0, 0) if fullscreen else size
+    screen = pygame.display.set_mode(display_size, build_display_flags(fullscreen=fullscreen, resizable=resizable))
     pygame.display.set_caption(f"{APP_TITLE} - {caption}")
     return screen
