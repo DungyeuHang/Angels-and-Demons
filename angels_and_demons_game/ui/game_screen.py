@@ -828,24 +828,27 @@ def draw_combo_banner(surface, font, small_font, board_rect, combo_banner, tick)
     return True
 
 
-def get_scaled_board_metrics(grid_rect, columns, rows, base_box_size, base_gap, min_box_size=46, min_gap=6):
+def get_scaled_board_metrics(grid_rect, columns, rows, base_box_size, base_gap, min_box_size=46, min_gap=6, fit_height=True):
     available_width = max(120, grid_rect.width - 36)
     available_height = max(120, grid_rect.height - 36)
     base_total_width = columns * base_box_size + max(0, columns - 1) * base_gap
     base_total_height = rows * base_box_size + max(0, rows - 1) * base_gap
-    scale = min(available_width / max(1, base_total_width), available_height / max(1, base_total_height), 1.0)
+    height_scale = available_height / max(1, base_total_height) if fit_height else 1.0
+    scale = min(available_width / max(1, base_total_width), height_scale, 1.0)
 
     box_size = max(min_box_size, int(round(base_box_size * scale)))
     gap = max(min_gap, int(round(base_gap * scale)))
 
     while columns * box_size + max(0, columns - 1) * gap > available_width and box_size > min_box_size:
         box_size -= 1
-    while rows * box_size + max(0, rows - 1) * gap > available_height and box_size > min_box_size:
-        box_size -= 1
+    if fit_height:
+        while rows * box_size + max(0, rows - 1) * gap > available_height and box_size > min_box_size:
+            box_size -= 1
     while columns * box_size + max(0, columns - 1) * gap > available_width and gap > min_gap:
         gap -= 1
-    while rows * box_size + max(0, rows - 1) * gap > available_height and gap > min_gap:
-        gap -= 1
+    if fit_height:
+        while rows * box_size + max(0, rows - 1) * gap > available_height and gap > min_gap:
+            gap -= 1
 
     board_total_width = columns * box_size + max(0, columns - 1) * gap
     board_total_height = rows * box_size + max(0, rows - 1) * gap
@@ -1228,6 +1231,9 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
     ui_font = fonts["ui"]
     ui_small_font = fonts["ui_small"]
     ui_tiny_font = fonts["ui_tiny"]
+    box_number_lg_font = fonts["box_number_lg"]
+    box_number_md_font = fonts["box_number_md"]
+    box_number_sm_font = fonts["box_number_sm"]
     spotlight_title_font = fonts["spotlight_title"]
     spotlight_subtitle_font = fonts["spotlight_subtitle"]
     spotlight_symbol_font = fonts["spotlight_symbol"]
@@ -1244,6 +1250,8 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
     player_list_scroll_speed = 34
     info_panel_scroll_y = 0
     info_panel_scroll_speed = 30
+    board_scroll_y = 0
+    board_scroll_speed = 64
     auto_follow_turn = turn_mode == SEQUENTIAL_TURN_MODE
 
     while True:
@@ -1570,19 +1578,27 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
         base_box_size = int(layout_definition.get("box_size", 72))
         base_gap = int(layout_definition.get("gap", 12))
         rows = max(1, math.ceil(len(session.boxes) / cols))
+        board_needs_scroll = len(session.boxes) > 200
         box_size, gap, board_total_width, board_total_height, start_x, start_y = get_scaled_board_metrics(
             grid_rect,
             cols,
             rows,
             base_box_size,
             base_gap,
+            min_box_size=54 if board_needs_scroll else 46,
+            fit_height=not board_needs_scroll,
         )
-        if box_size >= 78:
-            box_label_font = fonts["spotlight_title"]
-        elif box_size >= 62:
-            box_label_font = ui_font
+        board_view_rect = grid_rect.inflate(-18, -18)
+        board_max_scroll = max(0, board_total_height - board_view_rect.height + 36)
+        board_scroll_y = max(0, min(board_scroll_y, board_max_scroll))
+        if board_max_scroll > 0:
+            start_y = board_view_rect.y + 18 - board_scroll_y
+        if box_size >= 76:
+            box_label_font = box_number_lg_font
+        elif box_size >= 58:
+            box_label_font = box_number_md_font
         else:
-            box_label_font = ui_small_font if box_size >= 48 else ui_tiny_font
+            box_label_font = box_number_sm_font
 
         manual_lock = session.turn_mode == MANUAL_TURN_MODE and session.current_player is None and not session.waiting_effect_input
         reveal_in_progress = tick < session.reveal_lock_until
@@ -1595,6 +1611,8 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
             x = start_x + (index % cols) * (box_size + gap)
             y = start_y + (index // cols) * (box_size + gap)
             rect = pygame.Rect(x, y, box_size, box_size)
+            if not rect.colliderect(board_view_rect):
+                continue
             box_meta = session.box_effects.get(box_number, {})
             if rect.collidepoint(canvas_mouse) and box_number in session.opened:
                 hovered_effect_id = box_meta.get("effect_id")
@@ -1609,10 +1627,14 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
                 hovered_tooltip = item
                 break
 
+        previous_board_clip = canvas.get_clip()
+        canvas.set_clip(board_view_rect)
         for index, box_number in enumerate(session.boxes):
             x = start_x + (index % cols) * (box_size + gap)
             y = start_y + (index // cols) * (box_size + gap)
             rect = pygame.Rect(x, y, box_size, box_size)
+            if not rect.colliderect(board_view_rect):
+                continue
             draw_rect = rect
             box_meta = session.box_effects.get(box_number, {})
             preview_active = box_meta.get("preview_until", 0) > tick and box_number not in session.opened
@@ -1682,6 +1704,16 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
                 draw_box_particles(canvas, rect, box_meta.get("effect_id"), box_meta.get("opened_at", 0), tick, audio_settings.get("reduce_motion", False))
             elif preview_active and draw_rect.width >= 46:
                 draw_effect_sticker(canvas, draw_rect, ui_tiny_font, box_meta.get("effect_id"), compact=True)
+        canvas.set_clip(previous_board_clip)
+        if board_max_scroll > 0:
+            draw_scrollbar(
+                canvas,
+                pygame.Rect(board_view_rect.right - 10, board_view_rect.y + 8, 8, board_view_rect.height - 16),
+                board_total_height + 36,
+                board_view_rect.height,
+                board_scroll_y,
+                accent_color=PALETTE["azure_dark"],
+            )
 
         if session.tooltips_visible and hovered_effect_id and hovered_rect is not None and not session.help_visible:
             draw_hover_tooltip(canvas, ui_small_font, ui_tiny_font, hovered_effect_id, (hovered_rect.right, hovered_rect.y))
@@ -1835,6 +1867,15 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
             if event.type == pygame.MOUSEWHEEL and info_rect.collidepoint(canvas_mouse):
                 info_panel_scroll_y = max(0, min(info_panel_max_scroll, info_panel_scroll_y - event.y * info_panel_scroll_speed))
                 continue
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 4 and board_view_rect.collidepoint(canvas_mouse):
+                board_scroll_y = max(0, board_scroll_y - board_scroll_speed)
+                continue
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 5 and board_view_rect.collidepoint(canvas_mouse):
+                board_scroll_y = min(board_max_scroll, board_scroll_y + board_scroll_speed)
+                continue
+            if event.type == pygame.MOUSEWHEEL and board_view_rect.collidepoint(canvas_mouse):
+                board_scroll_y = max(0, min(board_max_scroll, board_scroll_y - event.y * board_scroll_speed))
+                continue
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 pos = (int(event.pos[0] * scale_x), int(event.pos[1] * scale_y))
@@ -1886,6 +1927,8 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
                     x = start_x + (index % cols) * (box_size + gap)
                     y = start_y + (index // cols) * (box_size + gap)
                     rect = pygame.Rect(x, y, box_size, box_size)
+                    if not rect.colliderect(board_view_rect):
+                        continue
                     if rect.collidepoint(pos) and box_number not in session.opened:
                         open_box(session, box_number, tick)
                         break
@@ -1921,6 +1964,9 @@ def run_game_ui(players, num_boxes, dist_mode, custom_weights=None, turn_mode=SE
         "ui": get_ui_font(18, bold=True),
         "ui_small": get_ui_font(14),
         "ui_tiny": get_ui_font(12),
+        "box_number_lg": get_ui_font(34, bold=True),
+        "box_number_md": get_ui_font(28, bold=True),
+        "box_number_sm": get_ui_font(22, bold=True),
         "spotlight_title": get_ui_font(28, bold=True),
         "spotlight_subtitle": get_ui_font(15, bold=True),
         "spotlight_symbol": get_ui_font(36, bold=True),
