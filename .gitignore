@@ -17,3 +17,4 @@ dist/
 .coverage
 htmlcov/
 /angels_and_demons_game/__pycache__
+*.pyc
