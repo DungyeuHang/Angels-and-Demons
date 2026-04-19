@@ -20,6 +20,7 @@ htmlcov/
 *.pyc
 angels_and_demons_game/__pycache__/config.cpython-312.pyc
 angels_and_demons_game/__pycache__/constants.cpython-312.pyc
+angels_and_demons_game/mechanics/__pycache__/__init__.cpython-312.pyc
 angels_and_demons_game/mechanics/__pycache__/effects.cpython-312.pyc
 angels_and_demons_game/mechanics/__pycache__/logic.cpython-312.pyc
 angels_and_demons_game/mechanics/__pycache__/randomizer.cpython-312.pyc
