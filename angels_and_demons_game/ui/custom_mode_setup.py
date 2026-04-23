@@ -532,6 +532,7 @@ def run_custom_mode_ui():
     backspace_repeat_delay = 170
     backspace_repeat_interval = 24
     next_backspace_time = 0
+    editing_player_count = False
 
     while True:
         presets = load_custom_modes()
@@ -644,7 +645,20 @@ def run_custom_mode_ui():
                         backspace_held = True
                         next_backspace_time = current_time + backspace_repeat_delay
                 elif phase == "names":
-                    if event.key == pygame.K_TAB:
+                    if editing_player_count:
+                        if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                            if valid_number(state["num_players_text"]):
+                                editing = set_mode_player_count(state, editing, int(state["num_players_text"]))
+                                editing_player_count = False
+                                scroll_y = 0
+                                refresh_text_input()
+                            else:
+                                error = "Số người chơi không hợp lệ."
+                        elif event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
+                            state["num_players_text"] = state["num_players_text"][:-1]
+                            backspace_held = True
+                            next_backspace_time = current_time + backspace_repeat_delay
+                    elif event.key == pygame.K_TAB:
                         now = pygame.time.get_ticks()
                         if now - last_tab_time >= 180 and state["player_names"]:
                             editing = focus_player_field(state, (editing + 1) % len(state["player_names"]))
@@ -722,7 +736,10 @@ def run_custom_mode_ui():
                 elif phase == "players":
                     state["num_players_text"] = append_numeric_fragment(state["num_players_text"], event.text)
                 elif phase == "names" and state["player_names"]:
-                    state["player_names"][editing] += event.text
+                    if editing_player_count:
+                        state["num_players_text"] = append_numeric_fragment(state["num_players_text"], event.text)
+                    else:
+                        state["player_names"][editing] += event.text
                 elif phase == "boxes":
                     state["num_boxes_text"] = append_numeric_fragment(state["num_boxes_text"], event.text)
                 elif phase == "effect_editor":
@@ -740,8 +757,14 @@ def run_custom_mode_ui():
             elif event.type == pygame.KEYUP and event.key in (pygame.K_BACKSPACE, pygame.K_DELETE):
                 backspace_held = False
 
+        if phase != "names":
+            editing_player_count = False
+
         if backspace_held and current_time >= next_backspace_time:
-            handle_backspace(state, phase, editing, effect_editor)
+            if phase == "names" and editing_player_count:
+                state["num_players_text"] = state["num_players_text"][:-1]
+            else:
+                handle_backspace(state, phase, editing, effect_editor)
             next_backspace_time = current_time + backspace_repeat_interval
 
         if phase == "list" and filtered_presets:
@@ -933,10 +956,12 @@ def run_custom_mode_ui():
         elif phase == "names":
             screen.blit(font.render("Người chơi", True, (0, 0, 0)), (60, 24))
             minus_rect = pygame.Rect(60, 90, 45, 38)
-            plus_rect = pygame.Rect(185, 90, 45, 38)
-            count_rect = pygame.Rect(115, 90, 60, 38)
+            count_rect = pygame.Rect(115, 90, 96, 38)
+            plus_rect = pygame.Rect(221, 90, 45, 38)
+            if not editing_player_count:
+                state["num_players_text"] = str(len(state["player_names"]))
             draw_button(screen, font, minus_rect, "-", (230, 230, 230))
-            draw_box(screen, font, count_rect, str(len(state["player_names"])))
+            draw_box(screen, font, count_rect, state["num_players_text"], editing_player_count, editing_player_count and caret_visible)
             draw_button(screen, font, plus_rect, "+", (230, 230, 230))
             quick_label = small_font.render("Preset nhanh cho ván người với người", True, (90, 90, 90))
             screen.blit(quick_label, (262, 100))
@@ -1008,25 +1033,42 @@ def run_custom_mode_ui():
             if mouse_clicked:
                 if minus_rect.collidepoint(mouse_pos) and len(state["player_names"]) > 1:
                     editing = set_mode_player_count(state, editing, len(state["player_names"]) - 1)
+                    editing_player_count = False
                 elif plus_rect.collidepoint(mouse_pos):
                     editing = set_mode_player_count(state, editing, len(state["player_names"]) + 1, focus_new=True)
+                    editing_player_count = False
+                    refresh_text_input()
+                elif count_rect.collidepoint(mouse_pos):
+                    state["num_players_text"] = str(len(state["player_names"]))
+                    editing_player_count = True
                     refresh_text_input()
                 elif humans_only_rect.collidepoint(mouse_pos):
                     clear_all_mode_bots(state)
                 elif next_rect.collidepoint(mouse_pos):
-                    error = "" if all(name.strip() for name in state["player_names"]) else "Hay nhap du ten nguoi choi."
-                    if not error:
+                    can_continue = True
+                    if editing_player_count:
+                        if valid_number(state["num_players_text"]):
+                            editing = set_mode_player_count(state, editing, int(state["num_players_text"]))
+                            editing_player_count = False
+                        else:
+                            error = "Số người chơi không hợp lệ."
+                            can_continue = False
+                    if can_continue:
+                        error = "" if all(name.strip() for name in state["player_names"]) else "Hay nhap du ten nguoi choi."
+                    if can_continue and not error:
                         phase = "boxes"
                         scroll_y = 0
                         refresh_text_input()
                 elif back_rect.collidepoint(mouse_pos):
                     phase, error = "players", ""
+                    editing_player_count = False
                     refresh_text_input()
                 else:
                     preset_handled = False
                     for count, rect in preset_rects:
                         if rect.collidepoint(mouse_pos):
                             editing = set_mode_player_count(state, editing, count)
+                            editing_player_count = False
                             clear_all_mode_bots(state)
                             refresh_text_input()
                             preset_handled = True
@@ -1035,6 +1077,7 @@ def run_custom_mode_ui():
                         for index, rect, toggle_rect in name_rects:
                             if rect.collidepoint(mouse_pos):
                                 editing = focus_player_field(state, index)
+                                editing_player_count = False
                                 refresh_text_input()
                             elif toggle_rect.collidepoint(mouse_pos):
                                 state["player_bot_flags"][index] = not state["player_bot_flags"][index]
