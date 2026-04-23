@@ -1577,8 +1577,12 @@ def run_round(screen, canvas, canvas_size, fonts, players, num_boxes, dist_mode,
         cols = int(layout_definition.get("columns", 10))
         base_box_size = int(layout_definition.get("box_size", 72))
         base_gap = int(layout_definition.get("gap", 12))
+        board_needs_scroll = len(session.boxes) >= 120
+        if board_needs_scroll:
+            available_columns_width = max(120, grid_rect.width - 36)
+            auto_columns = max(1, int((available_columns_width + base_gap) // max(1, base_box_size + base_gap)))
+            cols = min(len(session.boxes), max(cols, auto_columns))
         rows = max(1, math.ceil(len(session.boxes) / cols))
-        board_needs_scroll = len(session.boxes) > 200
         box_size, gap, board_total_width, board_total_height, start_x, start_y = get_scaled_board_metrics(
             grid_rect,
             cols,
