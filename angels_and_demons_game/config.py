@@ -3,10 +3,10 @@ import pygame
 from constants import APP_TITLE
 
 
-MENU_WINDOW_SIZE = (940, 680)
-SETUP_WINDOW_SIZE = (1100, 760)
-CUSTOM_WINDOW_SIZE = (1200, 760)
-GAME_WINDOW_SIZE = (1480, 860)
+MENU_WINDOW_SIZE = (1280, 720)
+SETUP_WINDOW_SIZE = (1280, 720)
+CUSTOM_WINDOW_SIZE = (1280, 720)
+GAME_WINDOW_SIZE = (1280, 720)
 
 
 def build_display_flags(fullscreen=False, resizable=True):
